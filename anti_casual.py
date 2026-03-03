@@ -1,17 +1,18 @@
 import requests
 import time
 import os
-import psycopg2
+import psycopg2 # Certifique-se de ter 'psycopg2-binary' no requirements.txt
 
+# Configurações
 API_KEY = os.getenv("PUBG_API_KEY")
-DATABASE_URL = os.getenv("DATABASE_URL")
+DATABASE_URL = os.getenv("DATABASE_URL") # URL do seu banco (ex: Supabase, Render, Neon)
 SHARD = "steam"
 
 PLAYERS = {
-    "Mamutag_Komander": "account.64c62d76cce74d0b99857a27975e350e",
     "Adrian-Wan":"account.58beb24ada7346408942d42dc64c7901",
     "MironoteuCool":"account.24b0600cbba342eab1546ae2881f50fa",
     "FabioEspeto":"account.d8ccad228a4a417dad9921616d6c6bcd",
+    "Mamutag_Komander":"account.64c62d76cce74d0b99857a27975e350e",
     "Robson_Foz":"account.8142e6d837254ee1bca954b719692f38",
     "MEIRAA":"account.c3f37890e7534978abadaf4bae051390",
     "EL-LOCORJ":"account.94ab932726fc4c64a03eb9797429baa3",
@@ -28,114 +29,66 @@ PLAYERS = {
     "O-CARRASCO":"account.78c6f7bd39da4274b5a3196ac624e92e",
 }
 
-HEADERS = {
-    "Authorization": f"Bearer {API_KEY}",
-    "Accept": "application/vnd.api+json"
-}
+def get_api(url):
+    headers = {"Authorization": f"Bearer {API_KEY}", "Accept": "application/vnd.api+json"}
+    r = requests.get(url, headers=headers)
+    return r.json() if r.status_code == 200 else None
 
+def processar_player(conn, name, pid):
+    cur = conn.cursor()
+    print(f"\n🔎 Analisando: {name}")
+    
+    data = get_api(f"https://api.pubg.com/shards/{SHARD}/players/{pid}")
+    if not data: return
+    
+    matches = data["data"]["relationships"]["matches"]["data"]
+    
+    for m in matches[:15]: # Analisa as últimas 15 por vez
+        mid = m["id"]
+        
+        # Verifica se já processamos essa partida antes
+        cur.execute("SELECT 1 FROM matches_processadas WHERE match_id = %s", (mid,))
+        if cur.fetchone(): continue
+            
+        m_data = get_api(f"https://api.pubg.com/shards/{SHARD}/matches/{mid}")
+        if not m_data: continue
+            
+        attr = m_data["data"]["attributes"]
+        parts = [x for x in m_data["included"] if x["type"] == "participant"]
+        humanos = sum(1 for p in parts if p["attributes"]["stats"].get("playerId", "").startswith("account."))
+        
+        # Lógica de Detecção
+        is_casual = attr.get("matchType") == "casual" or humanos <= 12
+        
+        if is_casual:
+            # Pega stats do player nessa partida específica
+            p_stats = next((x["attributes"]["stats"] for x in parts if x["attributes"]["stats"]["playerId"] == pid), None)
+            
+            if p_stats:
+                kills = p_stats.get("kills", 0)
+                dano = p_stats.get("damageDealt", 0)
+                # MULTIPLICADOR NEGATIVO: Aqui a mágica acontece
+                score_penalidade = (kills * 10) + (dano * 0.1)
+                
+                print(f"⚠️ Partida Casual {mid} detectada! Aplicando saldo negativo.")
+                
+                # Atualiza o ranking subtraindo os valores
+                cur.execute("""
+                    UPDATE ranking_bot SET 
+                        kills = kills - %s,
+                        score = score - %s,
+                        partidas = partidas + 1,
+                        atualizado_em = NOW()
+                    WHERE nick = %s
+                """, (kills, score_penalidade, name))
+        
+        # Registra que a partida já foi vista
+        cur.execute("INSERT INTO matches_processadas (match_id, player_name, is_casual) VALUES (%s, %s, %s)", (mid, name, is_casual))
+        conn.commit()
+        time.sleep(0.5)
 
-def get(url):
-    r = requests.get(url, headers=HEADERS)
-    if r.status_code == 200:
-        return r.json()
-    return None
-
-
-def match_ja_processada(conn, match_id):
-    with conn.cursor() as cur:
-        cur.execute(
-            "SELECT 1 FROM matches_processadas WHERE match_id = %s",
-            (match_id,)
-        )
-        return cur.fetchone() is not None
-
-
-def salvar_match_processada(conn, dados):
-    with conn.cursor() as cur:
-        cur.execute("""
-            INSERT INTO matches_processadas
-            (match_id, season_id, game_mode, map_name, match_type, humanos, bots)
-            VALUES (%s,%s,%s,%s,%s,%s,%s)
-            ON CONFLICT (match_id) DO NOTHING
-        """, dados)
-    conn.commit()
-
-
-def detectar_casual(attr, humanos):
-    if attr.get("matchType") == "casual":
-        return True
-    if humanos <= 12:
-        return True
-    return False
-
-
-def processar_player(conn, player_name, player_id):
-    print(f"\n🔎 Player: {player_name}")
-
-    player_data = get(f"https://api.pubg.com/shards/{SHARD}/players/{player_id}")
-    if not player_data:
-        return
-
-    matches = player_data["data"]["relationships"]["matches"]["data"]
-
-    for m in matches:
-        match_id = m["id"]
-
-        if match_ja_processada(conn, match_id):
-            continue
-
-        match_data = get(f"https://api.pubg.com/shards/{SHARD}/matches/{match_id}")
-        if not match_data:
-            continue
-
-        attr = match_data["data"]["attributes"]
-
-        if attr.get("gameMode") != "squad":
-            continue
-
-        participants = [
-            x for x in match_data["included"]
-            if x["type"] == "participant"
-        ]
-
-        humanos = sum(
-            1 for p in participants
-            if p["attributes"]["stats"].get("playerId", "").startswith("account.")
-        )
-
-        bots = len(participants) - humanos
-
-        casual = detectar_casual(attr, humanos)
-
-        print(f"Match: {match_id}")
-        print("Casual:", casual)
-
-        # 🔥 Se NÃO for casual → aqui você soma no ranking
-        if not casual:
-            print(">>> SOMAR STATS AO RANKING <<<")
-            # aqui você integra com sua lógica atual
-
-        salvar_match_processada(conn, (
-            match_id,
-            attr.get("seasonId"),
-            attr.get("gameMode"),
-            attr.get("mapName"),
-            attr.get("matchType"),
-            humanos,
-            bots
-        ))
-
-        time.sleep(0.7)
-
-
-def main():
-    conn = psycopg2.connect(DATABASE_URL)
-
-    for name, pid in PLAYERS.items():
-        processar_player(conn, name, pid)
-
-    conn.close()
-
-
-if __name__ == "__main__":
-    main()
+# Execução Principal
+db_conn = psycopg2.connect(DATABASE_URL)
+for name, pid in PLAYERS.items():
+    processar_player(db_conn, name, pid)
+db_conn.close()
