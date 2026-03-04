@@ -4,8 +4,8 @@ import os
 import psycopg2 # Certifique-se de ter 'psycopg2-binary' no requirements.txt
 
 # Configurações
-API_KEY = os.getenv("PUBG_API_KEY")
-DATABASE_URL = os.getenv("DATABASE_URL") # URL do seu banco (ex: Supabase, Render, Neon)
+API_KEY = os.environ.get("PUBG_API_KEY")
+DATABASE_URL = os.environ.get("DATABASE_URL") # URL do seu banco (ex: Supabase, Render, Neon)
 SHARD = "steam"
 
 PLAYERS = {
