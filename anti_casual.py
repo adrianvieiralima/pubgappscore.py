@@ -111,24 +111,36 @@ def processar_player(conn, player_name, player_id):
             )
 
             if p_stats:
-                kills = p_stats.get("kills", 0)
-                dano = p_stats.get("damageDealt", 0)
+    kills = p_stats.get("kills", 0)
+    dano = p_stats.get("damageDealt", 0)
+    # --- NOVAS VARIÁVEIS CAPTURADAS ---
+    vitorias = 1 if p_stats.get("winPlace") == 1 else 0
+    assists = p_stats.get("assists", 0)
+    headshots = p_stats.get("headshotKills", 0)
+    revives = p_stats.get("revives", 0)
+    dist_max = p_stats.get("longestKill", 0)
 
-                # Penalidade negativa
-                score_penalidade = (kills * 10) + (dano * 0.1)
+    # Penalidade negativa (sua regra original)
+    score_penalidade = (kills * 10) + (dano * 0.1)
 
-                print(f"⚠ Aplicando penalidade -{score_penalidade:.2f}")
-
-                cur.execute("""
-                    UPDATE ranking_bot SET
-                        kills = kills - %s,
-                        score = score - %s,
-                        partidas = partidas + 1,
-                        atualizado_em = NOW()
-                    WHERE nick = %s
-                """, (kills, score_penalidade, player_name))
-
-                penalidades += 1
+    # --- UPDATE COMPLETO ---
+    cur.execute("""
+        UPDATE ranking_bot SET
+            kills = kills - %s,
+            score = score - %s,
+            partidas = partidas + 1,
+            vitorias = vitorias + %s,
+            dano_medio = dano_medio + %s,
+            assists = assists + %s,
+            headshots = headshots + %s,
+            revives = revives + %s,
+            kill_dist_max = GREATEST(kill_dist_max, %s),
+            atualizado_em = NOW()
+        WHERE nick = %s
+    """, (
+        kills, score_penalidade, vitorias, dano, 
+        assists, headshots, revives, dist_max, player_name
+    ))
 
         # registra como processada
         cur.execute("""
