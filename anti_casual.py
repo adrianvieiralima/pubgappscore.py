@@ -37,10 +37,8 @@ def get(url):
     r = requests.get(url, headers=HEADERS)
     if r.status_code == 200:
         return r.json()
-
-    print("Erro API:", r.status_code)
+    print(f"Erro API ({r.status_code}): {url}")
     return None
-
 
 def processar_player(conn, player_name, player_id):
     print(f"\n🔎 Player: {player_name}")
@@ -48,23 +46,17 @@ def processar_player(conn, player_name, player_id):
 
     player_data = get(f"https://api.pubg.com/shards/{SHARD}/players/{player_id}")
     if not player_data:
-        print("Erro ao buscar player.")
         return 0
 
     matches = player_data["data"]["relationships"]["matches"]["data"]
-    print("Matches retornadas:", len(matches))
+    print(f"Matches encontradas: {len(matches)}")
 
     penalidades = 0
 
     for m in matches:
         match_id = m["id"]
 
-        # Evita processar a mesma partida duas vezes para o mesmo player
-        cur.execute("""
-            SELECT 1 FROM matches_processadas 
-            WHERE match_id = %s AND player_name = %s
-        """, (match_id, player_name))
-
+        cur.execute("SELECT 1 FROM matches_processadas WHERE match_id = %s AND player_name = %s", (match_id, player_name))
         if cur.fetchone():
             continue
 
@@ -74,102 +66,66 @@ def processar_player(conn, player_name, player_id):
 
         attr = match_data["data"]["attributes"]
 
-        # 🔥 SOMENTE SQUAD (igual seu script original)
+        # Mantendo sua regra de Modo de Jogo e Casual/Bot
         if attr.get("gameMode") != "squad":
             continue
 
-        participants = [
-            x for x in match_data["included"]
-            if x["type"] == "participant"
-        ]
+        participants = [x for x in match_data["included"] if x["type"] == "participant"]
+        humanos = sum(1 for p in participants if p["attributes"]["stats"].get("playerId", "").startswith("account."))
+        
+        # Sua regra original para detectar bot/casual
+        if attr.get("matchType") == "casual" or humanos <= 12:
+            print(f"Match {match_id}: CASUAL/BOT detectada.")
 
-        humanos = sum(
-            1 for p in participants
-            if p["attributes"]["stats"].get("playerId", "").startswith("account.")
-        )
-
-        bots = len(participants) - humanos
-
-        print(f"\nMatch: {match_id}")
-        print("GameMode:", attr.get("gameMode"))
-        print("Map:", attr.get("mapName"))
-        print("Humanos:", humanos)
-        print("Bots:", bots)
-
-        # 🔥 SUA REGRA ORIGINAL (inalterada)
-        if (
-            attr.get("matchType") == "casual"
-            or humanos <= 12
-        ):
-            print(">>> CASUAL SQUAD TPP DETECTADO <<<")
-
-            # pegar stats do player nessa partida
-            p_stats = next(
-                (x["attributes"]["stats"] for x in participants
-                 if x["attributes"]["stats"].get("playerId") == player_id),
-                None
-            )
+            p_stats = next((x["attributes"]["stats"] for x in participants if x["attributes"]["stats"].get("playerId") == player_id), None)
 
             if p_stats:
-    kills = p_stats.get("kills", 0)
-    dano = p_stats.get("damageDealt", 0)
-    # --- NOVAS VARIÁVEIS CAPTURADAS ---
-    vitorias = 1 if p_stats.get("winPlace") == 1 else 0
-    assists = p_stats.get("assists", 0)
-    headshots = p_stats.get("headshotKills", 0)
-    revives = p_stats.get("revives", 0)
-    dist_max = p_stats.get("longestKill", 0)
+                # Extração de TODOS os dados necessários
+                kills = p_stats.get("kills", 0)
+                dano = p_stats.get("damageDealt", 0)
+                assists = p_stats.get("assists", 0)
+                headshots = p_stats.get("headshotKills", 0)
+                revives = p_stats.get("revives", 0)
+                dist_max = p_stats.get("longestKill", 0)
+                vitoria = 1 if p_stats.get("winPlace") == 1 else 0
 
-    # Penalidade negativa (sua regra original)
-    score_penalidade = (kills * 10) + (dano * 0.1)
+                # Cálculo do score (sua regra original)
+                score_penalidade = (kills * 10) + (dano * 0.1)
 
-    # --- UPDATE COMPLETO ---
-    cur.execute("""
-        UPDATE ranking_bot SET
-            kills = kills - %s,
-            score = score - %s,
-            partidas = partidas + 1,
-            vitorias = vitorias + %s,
-            dano_medio = dano_medio + %s,
-            assists = assists + %s,
-            headshots = headshots + %s,
-            revives = revives + %s,
-            kill_dist_max = GREATEST(kill_dist_max, %s),
-            atualizado_em = NOW()
-        WHERE nick = %s
-    """, (
-        kills, score_penalidade, vitorias, dano, 
-        assists, headshots, revives, dist_max, player_name
-    ))
+                # UPDATE em todas as colunas da tabela conforme sua imagem
+                cur.execute("""
+                    UPDATE ranking_bot SET
+                        partidas = partidas + 1,
+                        vitorias = vitorias + %s,
+                        kills = kills - %s,
+                        score = score - %s,
+                        dano_medio = dano_medio + %s,
+                        assists = assists + %s,
+                        headshots = headshots + %s,
+                        revives = revives + %s,
+                        kill_dist_max = GREATEST(kill_dist_max, %s),
+                        atualizado_em = NOW()
+                    WHERE nick = %s
+                """, (vitoria, kills, score_penalidade, dano, assists, headshots, revives, dist_max, player_name))
 
-        # registra como processada
-        cur.execute("""
-            INSERT INTO matches_processadas (match_id, player_name)
-            VALUES (%s, %s)
-            ON CONFLICT DO NOTHING
-        """, (match_id, player_name))
+                penalidades += 1
 
+        # Registra como processada para não repetir
+        cur.execute("INSERT INTO matches_processadas (match_id, player_name) VALUES (%s, %s) ON CONFLICT DO NOTHING", (match_id, player_name))
         conn.commit()
-        time.sleep(0.7)
+        time.sleep(0.5)
 
-    print(f"\n🎯 Penalidades aplicadas para {player_name}: {penalidades}")
+    print(f"🎯 Finalizado para {player_name}. Penalidades: {penalidades}")
     return penalidades
 
-
-# EXECUÇÃO
-if not DATABASE_URL:
-    print("❌ DATABASE_URL não configurado.")
-    exit()
-
-conn = psycopg2.connect(DATABASE_URL)
-
-total_geral = 0
-
-for name, pid in PLAYERS.items():
-    total_geral += processar_player(conn, name, pid)
-
-conn.close()
-
-print("\n===================================")
-print("TOTAL PENALIDADES APLICADAS:", total_geral)
-print("===================================")
+# EXECUÇÃO PRINCIPAL
+if __name__ == "__main__":
+    if not DATABASE_URL:
+        print("❌ DATABASE_URL não configurado.")
+    else:
+        conn = psycopg2.connect(DATABASE_URL)
+        total_geral = 0
+        for name, pid in PLAYERS.items():
+            total_geral += processar_player(conn, name, pid)
+        conn.close()
+        print(f"\nTOTAL GERAL DE PENALIDADES: {total_geral}")
