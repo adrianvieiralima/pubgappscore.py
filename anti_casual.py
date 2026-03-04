@@ -1,11 +1,10 @@
 import requests
 import time
 import os
-import psycopg2 # Certifique-se de ter 'psycopg2-binary' no requirements.txt
+import psycopg2
 
-# Configurações
-API_KEY = os.environ.get("PUBG_API_KEY")
-DATABASE_URL = os.environ.get("DATABASE_URL") # URL do seu banco (ex: Supabase, Render, Neon)
+API_KEY = os.getenv("PUBG_API_KEY") or "SUA_CHAVE_AQUI"
+DATABASE_URL = os.getenv("DATABASE_URL")
 SHARD = "steam"
 
 PLAYERS = {
@@ -29,66 +28,136 @@ PLAYERS = {
     "O-CARRASCO":"account.78c6f7bd39da4274b5a3196ac624e92e",
 }
 
-def get_api(url):
-    headers = {"Authorization": f"Bearer {API_KEY}", "Accept": "application/vnd.api+json"}
-    r = requests.get(url, headers=headers)
-    return r.json() if r.status_code == 200 else None
+HEADERS = {
+    "Authorization": f"Bearer {API_KEY}",
+    "Accept": "application/vnd.api+json"
+}
 
-def processar_player(conn, name, pid):
+def get(url):
+    r = requests.get(url, headers=HEADERS)
+    if r.status_code == 200:
+        return r.json()
+
+    print("Erro API:", r.status_code)
+    return None
+
+
+def processar_player(conn, player_name, player_id):
+    print(f"\n🔎 Player: {player_name}")
     cur = conn.cursor()
-    print(f"\n🔎 Analisando: {name}")
-    
-    data = get_api(f"https://api.pubg.com/shards/{SHARD}/players/{pid}")
-    if not data: return
-    
-    matches = data["data"]["relationships"]["matches"]["data"]
-    
-    for m in matches[:15]: # Analisa as últimas 15 por vez
-        mid = m["id"]
-        
-        # Verifica se já processamos essa partida antes
-        cur.execute("SELECT 1 FROM matches_processadas WHERE match_id = %s", (mid,))
-        if cur.fetchone(): continue
-            
-        m_data = get_api(f"https://api.pubg.com/shards/{SHARD}/matches/{mid}")
-        if not m_data: continue
-            
-        attr = m_data["data"]["attributes"]
-        parts = [x for x in m_data["included"] if x["type"] == "participant"]
-        humanos = sum(1 for p in parts if p["attributes"]["stats"].get("playerId", "").startswith("account."))
-        
-        # Lógica de Detecção
-        is_casual = attr.get("matchType") == "casual" or humanos <= 12
-        
-        if is_casual:
-            # Pega stats do player nessa partida específica
-            p_stats = next((x["attributes"]["stats"] for x in parts if x["attributes"]["stats"]["playerId"] == pid), None)
-            
+
+    player_data = get(f"https://api.pubg.com/shards/{SHARD}/players/{player_id}")
+    if not player_data:
+        print("Erro ao buscar player.")
+        return 0
+
+    matches = player_data["data"]["relationships"]["matches"]["data"]
+    print("Matches retornadas:", len(matches))
+
+    penalidades = 0
+
+    for m in matches:
+        match_id = m["id"]
+
+        # Evita processar a mesma partida duas vezes para o mesmo player
+        cur.execute("""
+            SELECT 1 FROM matches_processadas 
+            WHERE match_id = %s AND player_name = %s
+        """, (match_id, player_name))
+
+        if cur.fetchone():
+            continue
+
+        match_data = get(f"https://api.pubg.com/shards/{SHARD}/matches/{match_id}")
+        if not match_data:
+            continue
+
+        attr = match_data["data"]["attributes"]
+
+        # 🔥 SOMENTE SQUAD (igual seu script original)
+        if attr.get("gameMode") != "squad":
+            continue
+
+        participants = [
+            x for x in match_data["included"]
+            if x["type"] == "participant"
+        ]
+
+        humanos = sum(
+            1 for p in participants
+            if p["attributes"]["stats"].get("playerId", "").startswith("account.")
+        )
+
+        bots = len(participants) - humanos
+
+        print(f"\nMatch: {match_id}")
+        print("GameMode:", attr.get("gameMode"))
+        print("Map:", attr.get("mapName"))
+        print("Humanos:", humanos)
+        print("Bots:", bots)
+
+        # 🔥 SUA REGRA ORIGINAL (inalterada)
+        if (
+            attr.get("matchType") == "casual"
+            or humanos <= 12
+        ):
+            print(">>> CASUAL SQUAD TPP DETECTADO <<<")
+
+            # pegar stats do player nessa partida
+            p_stats = next(
+                (x["attributes"]["stats"] for x in participants
+                 if x["attributes"]["stats"].get("playerId") == player_id),
+                None
+            )
+
             if p_stats:
                 kills = p_stats.get("kills", 0)
                 dano = p_stats.get("damageDealt", 0)
-                # MULTIPLICADOR NEGATIVO: Aqui a mágica acontece
+
+                # Penalidade negativa
                 score_penalidade = (kills * 10) + (dano * 0.1)
-                
-                print(f"⚠️ Partida Casual {mid} detectada! Aplicando saldo negativo.")
-                
-                # Atualiza o ranking subtraindo os valores
+
+                print(f"⚠ Aplicando penalidade -{score_penalidade:.2f}")
+
                 cur.execute("""
-                    UPDATE ranking_bot SET 
+                    UPDATE ranking_bot SET
                         kills = kills - %s,
                         score = score - %s,
                         partidas = partidas + 1,
                         atualizado_em = NOW()
                     WHERE nick = %s
-                """, (kills, score_penalidade, name))
-        
-        # Registra que a partida já foi vista
-        cur.execute("INSERT INTO matches_processadas (match_id, player_name, is_casual) VALUES (%s, %s, %s)", (mid, name, is_casual))
-        conn.commit()
-        time.sleep(0.5)
+                """, (kills, score_penalidade, player_name))
 
-# Execução Principal
-db_conn = psycopg2.connect(DATABASE_URL)
+                penalidades += 1
+
+        # registra como processada
+        cur.execute("""
+            INSERT INTO matches_processadas (match_id, player_name)
+            VALUES (%s, %s)
+            ON CONFLICT DO NOTHING
+        """, (match_id, player_name))
+
+        conn.commit()
+        time.sleep(0.7)
+
+    print(f"\n🎯 Penalidades aplicadas para {player_name}: {penalidades}")
+    return penalidades
+
+
+# EXECUÇÃO
+if not DATABASE_URL:
+    print("❌ DATABASE_URL não configurado.")
+    exit()
+
+conn = psycopg2.connect(DATABASE_URL)
+
+total_geral = 0
+
 for name, pid in PLAYERS.items():
-    processar_player(db_conn, name, pid)
-db_conn.close()
+    total_geral += processar_player(conn, name, pid)
+
+conn.close()
+
+print("\n===================================")
+print("TOTAL PENALIDADES APLICADAS:", total_geral)
+print("===================================")
