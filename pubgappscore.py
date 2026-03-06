@@ -121,7 +121,7 @@ if not df_bruto.empty:
     st.markdown("---")
 
     # ==========================================================
-    # LÓGICA DE SUBTRAÇÃO: ANULANDO PARTIDAS CASUAIS DO TOTAL
+    # AJUSTE: ANULANDO PARTIDAS CASUAIS DO TOTAL (CORRIGIDO)
     # ==========================================================
     cols_calc = ['partidas', 'vitorias', 'kills', 'assists', 'headshots', 'revives', 'dano_medio']
     for col in cols_calc:
@@ -133,14 +133,23 @@ if not df_bruto.empty:
         for _, row_bot in df_bots_raw.iterrows():
             nick_bot = row_bot['nick']
             if nick_bot in df_bruto['nick'].values:
+                # Subtraímos apenas valores ACUMULATIVOS
                 for col in ['partidas', 'vitorias', 'kills', 'assists', 'headshots', 'revives']:
                     v_total = df_bruto.loc[df_bruto['nick'] == nick_bot, col].values[0]
-                    v_casual = row_bot[col]
+                    # Usamos abs() para garantir que estamos subtraindo o valor bruto
+                    v_casual = abs(row_bot[col]) 
                     df_bruto.loc[df_bruto['nick'] == nick_bot, col] = max(0, v_total - v_casual)
                 
-                p_limpas = df_bruto.loc[df_bruto['nick'] == nick_bot, 'partidas'].values[0]
+                # RECALCULO DE KR E DANO MÉDIO (Para não bugar o Score)
+                p_limpas = max(1, df_bruto.loc[df_bruto['nick'] == nick_bot, 'partidas'].values[0])
                 k_limpas = df_bruto.loc[df_bruto['nick'] == nick_bot, 'kills'].values[0]
-                df_bruto.loc[df_bruto['nick'] == nick_bot, 'kr'] = k_limpas / max(1, p_limpas)
+                
+                # Atualiza o KR com base nos novos valores limpos
+                df_bruto.loc[df_bruto['nick'] == nick_bot, 'kr'] = k_limpas / p_limpas
+                
+                # O Dano Médio não se subtrai, ele se mantém o original do banco 
+                # a menos que você tenha o dano total da partida de bot.
+    # ==========================================================
 
     for col in cols_calc:
         df_bruto[col] = df_bruto[col].astype(int)
