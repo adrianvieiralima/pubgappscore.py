@@ -213,7 +213,7 @@ if not df_bruto.empty:
         "🔥 PRO Player", 
         "🤝 TEAM Player", 
         "🎯 Atirador de Elite",
-        "🤖 Anti-Casual (Bots)"
+        "🤖 Bot Detector"
     ])
 
     df_valid = df_bruto[df_bruto['partidas'] > 0].copy()
@@ -221,21 +221,21 @@ if not df_bruto.empty:
 
     with tab1:
         f_pro = (df_valid['kr'] * 40) + (df_valid['dano_medio'] / 8) + ((df_valid['vitorias'] / df_valid['partidas_calc']) * 500)
-        renderizar_ranking(df_valid.copy(), 'Score_Pro', f_pro, "Fórmula PRO: Valoriza equilíbrio entre sobrevivência e agressividade.")
+        renderizar_ranking(df_valid.copy(), 'Score_Pro', f_pro, "Fórmula PRO: Valoriza equilíbrio entre sobrevivência e agressividade. Foca em K/R alto, dano consistente e taxa de vitória")
 
     with tab2:
         f_team = ((df_valid['vitorias'] / df_valid['partidas_calc']) * 1000) + ((df_valid['revives'] / df_valid['partidas_calc']) * 50) + ((df_valid['assists'] / df_valid['partidas_calc']) * 35)
-        renderizar_ranking(df_valid.copy(), 'Score_Team', f_team, "Fórmula TEAM: Foco total no jogo coletivo.")
+        renderizar_ranking(df_valid.copy(), 'Score_Team', f_team, "Fórmula TEAM: Foco total no jogo coletivo. Pontua mais quem revive aliados, dá assistências e garante a vitória.")
 
     with tab3:
         f_elite = (df_valid['kr'] * 50) + ((df_valid['headshots'] / df_valid['partidas_calc']) * 60) + (df_valid['dano_medio'] / 5)
-        renderizar_ranking(df_valid.copy(), 'Score_Elite', f_elite, "Fórmula ELITE: Prioriza K/R, Headshots e volume de dano.")
+        renderizar_ranking(df_valid.copy(), 'Score_Elite', f_elite, "Fórmula ELITE: Prioriza K/R, precisão de Headshots e volume de dano. ")
 
     with tab4:
         if not df_bots_raw.empty:
             df_bots = df_bots_raw[df_bots_raw['partidas'] > 0].copy()
             if not df_bots.empty:
-                renderizar_ranking(df_bots, 'score', None, "Anti-Casual: Jogadores penalizados por bots em casuais. Score baixo = alta penalidade.")
+                renderizar_ranking(df_bots, 'score', None, "Anti-Casual: Jogadores penalizados por matar bots em partidas no modo casual.")
             else:
                 st.info("Nenhuma penalidade registrada.")
 
