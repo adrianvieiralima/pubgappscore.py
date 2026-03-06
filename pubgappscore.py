@@ -123,7 +123,6 @@ if not df_bruto.empty:
     # ==========================================================
     # LÓGICA DE SUBTRAÇÃO: ANULANDO PARTIDAS CASUAIS DO TOTAL
     # ==========================================================
-    # Conversão numérica inicial para cálculos
     cols_calc = ['partidas', 'vitorias', 'kills', 'assists', 'headshots', 'revives', 'dano_medio']
     for col in cols_calc:
         df_bruto[col] = pd.to_numeric(df_bruto[col], errors='coerce').fillna(0)
@@ -134,22 +133,19 @@ if not df_bruto.empty:
         for _, row_bot in df_bots_raw.iterrows():
             nick_bot = row_bot['nick']
             if nick_bot in df_bruto['nick'].values:
-                # Subtraímos o total da partida detectada como casual do ranking principal
                 for col in ['partidas', 'vitorias', 'kills', 'assists', 'headshots', 'revives']:
                     v_total = df_bruto.loc[df_bruto['nick'] == nick_bot, col].values[0]
                     v_casual = row_bot[col]
                     df_bruto.loc[df_bruto['nick'] == nick_bot, col] = max(0, v_total - v_casual)
                 
-                # Recalculamos o KR real (Kills Reais / Partidas Reais)
                 p_limpas = df_bruto.loc[df_bruto['nick'] == nick_bot, 'partidas'].values[0]
                 k_limpas = df_bruto.loc[df_bruto['nick'] == nick_bot, 'kills'].values[0]
                 df_bruto.loc[df_bruto['nick'] == nick_bot, 'kr'] = k_limpas / max(1, p_limpas)
 
-    # Conversão final para Inteiros para a Tabela
     for col in cols_calc:
         df_bruto[col] = df_bruto[col].astype(int)
 
-    # --- FUNÇÕES DE SUPORTE À UI (ORIGINAL) ---
+    # --- FUNÇÕES DE SUPORTE À UI ---
     def highlight_zones(row):
         if row['Classificação'] == "Elite Zone":
             return ['background-color: #003300; color: white; font-weight: bold'] * len(row)
@@ -163,6 +159,7 @@ if not df_bruto.empty:
         
         ranking_final = processar_ranking_completo(df_local, col_score)
 
+        # Métrica de Topo
         top1, top2, top3 = st.columns(3)
         with top1:
             nome = ranking_final.iloc[0]['nick'] if len(ranking_final) > 0 else "-"
@@ -179,11 +176,19 @@ if not df_bruto.empty:
 
         st.markdown(f"<div style='background-color: #161b22; padding: 12px; border-radius: 8px; border-left: 5px solid #0078ff; margin-bottom: 20px; text-align: left;'>💡 {explicacao}</div>", unsafe_allow_html=True)
 
-        format_dict = {
-            'kr': "{:.2f}", 'kill_dist_max': "{:.2f}", col_score: "{:.2f}",
-            'partidas': "{:d}", 'vitorias': "{:d}", 'kills': "{:d}", 
-            'assists': "{:d}", 'headshots': "{:d}", 'revives': "{:d}", 'dano_medio': "{:d}"
-        }
+        # --- ALTERAÇÃO SOLICITADA: FORMATAÇÃO COM SINAL DE SUBTRAÇÃO PARA ANTI-CASUAL ---
+        if col_score == 'score':
+            format_dict = {
+                'kr': "- {:.2f}", 'kill_dist_max': "- {:.2f}", col_score: "{:.2f}",
+                'partidas': "- {:d}", 'vitorias': "- {:d}", 'kills': "- {:d}", 
+                'assists': "- {:d}", 'headshots': "- {:d}", 'revives': "- {:d}", 'dano_medio': "- {:d}"
+            }
+        else:
+            format_dict = {
+                'kr': "{:.2f}", 'kill_dist_max': "{:.2f}", col_score: "{:.2f}",
+                'partidas': "{:d}", 'vitorias': "{:d}", 'kills': "{:d}", 
+                'assists': "{:d}", 'headshots': "{:d}", 'revives': "{:d}", 'dano_medio': "{:d}"
+            }
         
         st.dataframe(
             ranking_final.style
