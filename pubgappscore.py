@@ -177,11 +177,19 @@ if not df_bruto.empty:
         st.markdown(f"<div style='background-color: #161b22; padding: 12px; border-radius: 8px; border-left: 5px solid #0078ff; margin-bottom: 20px; text-align: left;'>💡 {explicacao}</div>", unsafe_allow_html=True)
 
         # --- ALTERAÇÃO SOLICITADA: FORMATAÇÃO COM SINAL DE SUBTRAÇÃO PARA ANTI-CASUAL ---
+# AJUSTE DO FORMATADOR: Usando lambda com abs() para evitar o sinal duplo '--'
         if col_score == 'score':
             format_dict = {
-                'kr': "- {:.2f}", 'kill_dist_max': "- {:.2f}", col_score: "{:.2f}",
-                'partidas': "- {:d}", 'vitorias': "- {:d}", 'kills': "- {:d}", 
-                'assists': "- {:d}", 'headshots': "- {:d}", 'revives': "- {:d}", 'dano_medio': "- {:d}"
+                'kr': lambda x: f"- {abs(x):.2f}",
+                'kill_dist_max': lambda x: f"- {abs(x):.2f}",
+                'partidas': lambda x: f"- {int(abs(x))}",
+                'vitorias': lambda x: f"- {int(abs(x))}",
+                'kills': lambda x: f"- {int(abs(x))}",
+                'assists': lambda x: f"- {int(abs(x))}",
+                'headshots': lambda x: f"- {int(abs(x))}",
+                'revives': lambda x: f"- {int(abs(x))}",
+                'dano_medio': lambda x: f"- {int(abs(x))}",
+                col_score: "{:.2f}"
             }
         else:
             format_dict = {
