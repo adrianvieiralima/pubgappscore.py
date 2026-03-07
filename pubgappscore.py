@@ -16,8 +16,8 @@ st.set_page_config(
 # FUNÇÃO TELEGRAM (PARA NOTIFICAÇÃO)
 # =============================
 def enviar_telegram(nick):
-    token = "SEU_TOKEN_AQUI" # Coloque seu token aqui
-    chat_id = "SEU_CHAT_ID_AQUI" # Coloque seu ID aqui
+    token = "8088132092:AAEKm7lOaros8pKw93KptSsT4Qj8VZoO7tA" # Coloque seu token aqui
+    chat_id = "7015891120" # Coloque seu ID aqui
     mensagem = f"🚀 **Nova Solicitação de Ranking!**\n\nNickname: `{nick}`"
     url = f"https://api.telegram.org/bot{token}/sendMessage?chat_id={chat_id}&text={mensagem}&parse_mode=Markdown"
     try:
@@ -262,7 +262,7 @@ if not df_bruto.empty:
                 st.info("Nenhuma penalidade registrada.")
 
     # =============================
-    # RODAPÉ: SOLICITAÇÃO + CRÉDITO (TUDO NO LUGAR)
+    # RODAPÉ: SOLICITAÇÃO + CRÉDITO
     # =============================
     st.markdown("---")
     
@@ -273,16 +273,25 @@ if not df_bruto.empty:
                 n_nick = st.text_input("Nickname PUBG", placeholder="Ex: Kowalski_PR")
                 if st.form_submit_button("Enviar Solicitação") and n_nick:
                     try:
+                        # Conecta e insere na tabela de controle
                         conn = st.connection("postgresql", type="sql", url=st.secrets["DATABASE_URL"])
                         with conn.session as s:
-                            s.execute("INSERT INTO jogadores_monitorados (nick, status) VALUES (:n, 'pendente') ON CONFLICT DO NOTHING", {"n": n_nick})
+                            s.execute(
+                                "INSERT INTO jogadores_monitorados (nick, status) VALUES (:n, 'pendente') ON CONFLICT DO NOTHING", 
+                                {"n": n_nick}
+                            )
                             s.commit()
+                        
+                        # Dispara o alerta para o seu celular
                         enviar_telegram(n_nick)
-                        st.success("Enviado! O admin foi notificado.")
-                    except: st.error("Erro ao salvar.")
+                        
+                        st.success("Solicitação enviada! O admin recebeu seu Nick.")
+                    except: 
+                        st.error("Erro ao processar. Tente novamente mais tarde.")
         with c_i:
             st.markdown("<p style='color: gray; font-size: 14px; margin-top: 20px;'>A análise de novos players é feita manualmente para manter a integridade dos dados.</p>", unsafe_allow_html=True)
 
+    # SEU CRÉDITO SEMPRE VISÍVEL NO FINAL
     st.markdown("<div style='text-align: center; color: gray; padding: 20px;'>📊 <b>By Adriano Vieira</b></div>", unsafe_allow_html=True)
 
 else:
