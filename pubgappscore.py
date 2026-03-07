@@ -174,7 +174,39 @@ if not df_bruto.empty:
         if not df_bots_raw.empty:
             renderizar_ranking(df_bots_raw[df_bots_raw['partidas']>0].copy(), 'score', None, "Anti-Casual: Penalidades registradas.")
 
+    # --- FINAL DO SITE (RODAPÉ) ---
     st.markdown("---")
+    
+    # Solicitação discreta que só aparece se clicar no "+"
+    with st.expander("📝 Solicitar inclusão no Ranking"):
+        col_form, col_info = st.columns([1, 1])
+        with col_form:
+            with st.form("form_adesao", clear_on_submit=True):
+                novo_nick = st.text_input("Nickname PUBG", placeholder="Ex: Kowalski_PR")
+                btn_solicitar = st.form_submit_button("Enviar Solicitação")
+                
+                if btn_solicitar and novo_nick:
+                    try:
+                        # 1. Tenta salvar no banco de dados
+                        conn = st.connection("postgresql", type="sql", url=st.secrets["DATABASE_URL"])
+                        with conn.session as s:
+                            s.execute(
+                                "INSERT INTO jogadores_monitorados (nick, status) VALUES (:n, 'pendente') ON CONFLICT (nick) DO NOTHING",
+                                {"n": novo_nick}
+                            )
+                            s.commit()
+                        
+                        # 2. Te avisa no Telegram
+                        enviar_telegram(novo_nick)
+                        
+                        st.success("Solicitação enviada com sucesso!")
+                    except:
+                        st.error("Erro técnico ao salvar solicitação.")
+        
+        with col_info:
+            st.markdown("<br><p style='color: gray; font-size: 14px;'>A análise de novos players é feita manualmente pelo administrador para manter a integridade dos dados.</p>", unsafe_allow_html=True)
+
+    # SEU CRÉDITO CONTINUA AQUI, EXATAMENTE COMO NO ORIGINAL
     st.markdown("<div style='text-align: center; color: gray; padding: 20px;'>📊 <b>By Adriano Vieira</b></div>", unsafe_allow_html=True)
 else:
     st.warning("Conectado ao banco. Aguardando dados...")
