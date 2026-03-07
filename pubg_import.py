@@ -1,172 +1,82 @@
-import os
-import time
+import pandas as pd
 import requests
 import psycopg2
-from datetime import datetime
-from concurrent.futures import ThreadPoolExecutor, as_completed
+from sqlalchemy import create_engine
+import time
 
-DATABASE_URL = os.environ.get("DATABASE_URL")
-API_KEY = os.environ.get("PUBG_API_KEY")
-BASE_URL = "https://api.pubg.com/shards/steam"
-
-headers = {
+# =============================
+# CONFIGURAÇÕES E CONEXÃO
+# =============================
+DB_URL = "SUA_DATABASE_URL_AQUI" # Use a mesma URL do seu secrets
+API_KEY = "SUA_API_KEY_PUBG_AQUI"
+HEADERS = {
     "Authorization": f"Bearer {API_KEY}",
     "Accept": "application/vnd.api+json"
 }
 
-players = [
-    "Adrian-Wan", "MironoteuCool", "FabioEspeto", "Mamutag_Komander",
-    "Robson_Foz", "MEIRAA", "EL-LOCORJ", "SalaminhoKBD",
-    "nelio_ponto_dev", "CARNEIROOO", "Kowalski_PR", "Zacouteguy",
-    "Sidors", "Takato_Matsuki", "cmm01", "Petrala",
-    "Fumiga_BR", "O-CARRASCO"
-]
+def get_engine():
+    return create_engine(DB_URL)
 
-# ===============================
-# REQUISIÇÃO COM CONTROLE INTELIGENTE
-# ===============================
+# ==========================================================
+# FUNÇÃO PARA CARREGAR PLAYERS ATIVOS DO BANCO (DINÂMICO)
+# ==========================================================
+def carregar_players_ativos():
+    try:
+        engine = get_engine()
+        query = "SELECT nick, account_id FROM jogadores_monitorados WHERE status = 'ativo'"
+        df = pd.read_sql(query, engine)
+        # Retorna um dicionário { 'Nick': 'AccountID' }
+        return dict(zip(df['nick'], df['account_id']))
+    except Exception as e:
+        print(f"Erro ao carregar players do banco: {e}")
+        return {}
 
-def fazer_requisicao(url):
-    for tentativa in range(3):
-        res = requests.get(url, headers=headers)
+# ==========================================================
+# LÓGICA DE COLETA (ADAPTADA)
+# ==========================================================
+def importar_dados():
+    PLAYERS = carregar_players_ativos()
+    
+    if not PLAYERS:
+        print("Nenhum jogador ativo encontrado no banco para monitoramento.")
+        return
 
-        if res.status_code == 429:
-            retry_after = int(res.headers.get("Retry-After", 10))
-            print(f"⏳ Rate limit. Aguardando {retry_after}s...")
-            time.sleep(retry_after)
-            continue
+    lista_resultados = []
 
-        return res
+    for nick, account_id in PLAYERS.items():
+        print(f"Coletando dados de: {nick}...")
+        
+        # Se o account_id estiver vazio no banco, tentamos buscar na API e atualizar o banco
+        if not account_id or account_id == "":
+            url_player = f"https://api.pubg.com/shards/steam/players?filter[playerNames]={nick}"
+            res = requests.get(url_player, headers=HEADERS)
+            if res.status_code == 200:
+                account_id = res.json()['data'][0]['id']
+                # Atualiza o banco para não precisar buscar o ID de novo
+                with get_engine().connect() as conn:
+                    conn.execute(f"UPDATE jogadores_monitorados SET account_id = '{account_id}' WHERE nick = '{nick}'")
+            else:
+                print(f"Não foi possível encontrar ID para {nick}")
+                continue
 
-    return None
+        # Coleta de Stats da Season (Exemplo simplificado da sua lógica atual)
+        url_stats = f"https://api.pubg.com/shards/steam/players/{account_id}/seasons/division.bro.official.pc-2024-40/gameMode/squad-fpp/stats"
+        res_stats = requests.get(url_stats, headers=HEADERS)
+        
+        if res_stats.status_code == 200:
+            data = res_stats.json()['data']['attributes']['gameModeStats']['squad-fpp']
+            data['nick'] = nick
+            data['ultima_atualizacao'] = pd.Timestamp.now()
+            lista_resultados.append(data)
+        
+        time.sleep(1) # Respeitar rate limit
 
-def dividir_lista(lista, tamanho):
-    for i in range(0, len(lista), tamanho):
-        yield lista[i:i + tamanho]
+    if lista_resultados:
+        df_final = pd.DataFrame(lista_resultados)
+        engine = get_engine()
+        # Salva na sua view/tabela principal de ranking
+        df_final.to_sql('v_ranking_squad_completo', engine, if_exists='replace', index=False)
+        print("Ranking principal atualizado com sucesso!")
 
-# ===============================
-# INÍCIO
-# ===============================
-
-inicio_total = time.time()
-print("🚀 Detectando temporada...")
-
-res_season = fazer_requisicao(f"{BASE_URL}/seasons")
-current_season_id = next(
-    (s["id"] for s in res_season.json()["data"]
-     if s["attributes"]["isCurrentSeason"]),
-    ""
-)
-
-print(f"📅 Temporada atual: {current_season_id}")
-
-# ===============================
-# BUSCAR IDS EM LOTE
-# ===============================
-
-print("🔎 Buscando IDs em lote...")
-player_ids = {}
-
-for grupo in dividir_lista(players, 10):
-    nomes = ",".join(grupo)
-    res = fazer_requisicao(
-        f"{BASE_URL}/players?filter[playerNames]={nomes}"
-    )
-    if res and res.status_code == 200:
-        for p in res.json()["data"]:
-            player_ids[p["attributes"]["name"]] = p["id"]
-
-print(f"✅ {len(player_ids)} IDs encontrados.")
-
-# ===============================
-# BUSCA PARALELA DE STATS
-# ===============================
-
-def buscar_stats(player, p_id):
-    url = f"{BASE_URL}/players/{p_id}/seasons/{current_season_id}"
-    res = fazer_requisicao(url)
-
-    if not res or res.status_code != 200:
-        return None
-
-    stats = res.json()["data"]["attributes"]["gameModeStats"].get("squad", {})
-    partidas = stats.get("roundsPlayed", 0)
-
-    if partidas == 0:
-        return None
-
-    kills = stats.get("kills", 0)
-    vitorias = stats.get("wins", 0)
-    assists = stats.get("assists", 0)
-    headshots = stats.get("headshotKills", 0)
-    revives = stats.get("revives", 0)
-    dano_total = stats.get("damageDealt", 0)
-    dist_max = stats.get("longestKill", 0.0)
-
-    kr = round(kills / partidas, 2)
-    dano_medio = int(dano_total / partidas)
-
-    print(f"⚡ {player} processado")
-
-    return (
-        player, partidas, kr, vitorias, kills,
-        dano_medio, assists, headshots,
-        revives, dist_max, datetime.utcnow()
-    )
-
-print("⚡ Buscando estatísticas em paralelo...")
-
-resultados = []
-
-with ThreadPoolExecutor(max_workers=5) as executor:
-    futures = [
-        executor.submit(buscar_stats, player, p_id)
-        for player, p_id in player_ids.items()
-    ]
-
-    for future in as_completed(futures):
-        resultado = future.result()
-        if resultado:
-            resultados.append(resultado)
-
-print(f"✅ {len(resultados)} jogadores com stats válidas.")
-
-# ===============================
-# BATCH INSERT
-# ===============================
-
-try:
-    conn = psycopg2.connect(DATABASE_URL)
-    cursor = conn.cursor()
-
-    sql = """
-    INSERT INTO ranking_squad
-    (nick, partidas, kr, vitorias, kills, dano_medio,
-     assists, headshots, revives, kill_dist_max, atualizado_em)
-    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
-    ON CONFLICT (nick) DO UPDATE SET
-    partidas=EXCLUDED.partidas,
-    kr=EXCLUDED.kr,
-    vitorias=EXCLUDED.vitorias,
-    kills=EXCLUDED.kills,
-    dano_medio=EXCLUDED.dano_medio,
-    assists=EXCLUDED.assists,
-    headshots=EXCLUDED.headshots,
-    revives=EXCLUDED.revives,
-    kill_dist_max=EXCLUDED.kill_dist_max,
-    atualizado_em=EXCLUDED.atualizado_em
-    """
-
-    cursor.executemany(sql, resultados)
-    conn.commit()
-
-    cursor.close()
-    conn.close()
-
-    print("💾 Banco atualizado com sucesso!")
-
-except Exception as e:
-    print(f"💥 Erro no banco: {e}")
-
-fim_total = time.time()
-print(f"⏱ Tempo total: {round(fim_total - inicio_total, 2)} segundos")
+if __name__ == "__main__":
+    importar_dados()
