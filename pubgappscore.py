@@ -1,6 +1,13 @@
-import streamlit as st
 import pandas as pd
+import streamlit as st
+from pubg_ranking import atualizar_ranking
 
+# Atualiza ranking quando abre a página
+if "ranking_atualizado" not in st.session_state:
+    with st.spinner("Atualizando ranking PUBG..."):
+        atualizar_ranking()
+    st.session_state.ranking_atualizado = True
+    
 # =============================
 # CONFIGURAÇÃO DA PÁGINA (ORIGINAL)
 # =============================
