@@ -1,9 +1,10 @@
 import streamlit as st
 import pandas as pd
 import subprocess
+import sys
 
 # =============================
-# CONFIGURAÇÃO DA PÁGINA (ORIGINAL)
+# CONFIGURAÇÃO DA PÁGINA
 # =============================
 st.set_page_config(
     page_title="PUBG Squad Ranking",
@@ -13,15 +14,15 @@ st.set_page_config(
 )
 
 # =============================
-# ATUALIZAÇÃO IMEDIATA DO BANCO
+# ATUALIZAÇÃO AUTOMÁTICA DO BANCO
 # =============================
 try:
-    subprocess.run(["python", "pubg_import.py"], check=True)
+    subprocess.run([sys.executable, "pubg_import.py"], check=True)
 except Exception as e:
     st.warning(f"Erro ao atualizar ranking: {e}")
 
 # =============================
-# CSS TEMA ESCURO CUSTOM (ORIGINAL)
+# CSS TEMA ESCURO CUSTOM
 # =============================
 st.markdown("""
 <style>
@@ -139,32 +140,6 @@ if not df_bruto.empty:
     for col in cols_calc:
         df_bruto[col] = pd.to_numeric(df_bruto[col], errors='coerce').fillna(0)
 
-        if not df_bots_raw.empty and col in df_bots_raw.columns:
-            df_bots_raw[col] = pd.to_numeric(df_bots_raw[col], errors='coerce').fillna(0)
-
-    if not df_bots_raw.empty:
-
-        for _, row_bot in df_bots_raw.iterrows():
-
-            nick_bot = row_bot['nick']
-
-            if nick_bot in df_bruto['nick'].values:
-
-                for col in ['partidas','vitorias','kills','assists','headshots','revives']:
-
-                    v_total = df_bruto.loc[df_bruto['nick'] == nick_bot, col].values[0]
-                    v_casual = abs(row_bot[col])
-
-                    df_bruto.loc[df_bruto['nick'] == nick_bot, col] = max(0, v_total - v_casual)
-
-                p_limpas = max(1, df_bruto.loc[df_bruto['nick'] == nick_bot, 'partidas'].values[0])
-                k_limpas = df_bruto.loc[df_bruto['nick'] == nick_bot, 'kills'].values[0]
-
-                df_bruto.loc[df_bruto['nick'] == nick_bot, 'kr'] = k_limpas / p_limpas
-
-    for col in cols_calc:
-        df_bruto[col] = df_bruto[col].astype(int)
-
     def highlight_zones(row):
 
         if row['Classificação'] == "Elite Zone":
@@ -185,27 +160,29 @@ if not df_bruto.empty:
         top1, top2, top3 = st.columns(3)
 
         with top1:
-            nome = ranking_final.iloc[0]['nick'] if len(ranking_final) > 0 else "-"
-            valor = f"{ranking_final.iloc[0][col_score]:.2f} pts" if len(ranking_final) > 0 else "0.00 pts"
+            nome = ranking_final.iloc[0]['nick']
+            valor = f"{ranking_final.iloc[0][col_score]:.2f} pts"
             st.metric("🥇 1º Lugar", nome, valor)
 
         with top2:
-            nome = ranking_final.iloc[1]['nick'] if len(ranking_final) > 1 else "-"
-            valor = f"{ranking_final.iloc[1][col_score]:.2f} pts" if len(ranking_final) > 1 else "0.00 pts"
+            nome = ranking_final.iloc[1]['nick']
+            valor = f"{ranking_final.iloc[1][col_score]:.2f} pts"
             st.metric("🥈 2º Lugar", nome, valor)
 
         with top3:
-            nome = ranking_final.iloc[2]['nick'] if len(ranking_final) > 2 else "-"
-            valor = f"{ranking_final.iloc[2][col_score]:.2f} pts" if len(ranking_final) > 2 else "0.00 pts"
+            nome = ranking_final.iloc[2]['nick']
+            valor = f"{ranking_final.iloc[2][col_score]:.2f} pts"
             st.metric("🥉 3º Lugar", nome, valor)
 
-        st.markdown(f"<div style='background-color: #161b22; padding: 12px; border-radius: 8px; border-left: 5px solid #0078ff; margin-bottom: 20px; text-align: left;'>💡 {explicacao}</div>", unsafe_allow_html=True)
+        st.markdown(
+            f"<div style='background-color:#161b22;padding:12px;border-radius:8px;border-left:5px solid #0078ff;margin-bottom:20px;text-align:left;'>💡 {explicacao}</div>",
+            unsafe_allow_html=True
+        )
 
         st.dataframe(
             ranking_final.style
             .background_gradient(cmap='YlGnBu' if col_score != 'score' else 'RdYlGn', subset=[col_score])
-            .apply(highlight_zones, axis=1)
-            .format({'kr':"{:.2f}",col_score:"{:.2f}"}),
+            .apply(highlight_zones, axis=1),
             use_container_width=True,
             height=(len(ranking_final)*35)+80,
             hide_index=True
@@ -223,15 +200,18 @@ if not df_bruto.empty:
 
     with tab1:
         f_pro = (df_valid['kr']*40)+(df_valid['dano_medio']/8)+((df_valid['vitorias']/df_valid['partidas_calc'])*500)
-        renderizar_ranking(df_valid.copy(),'Score_Pro',f_pro,"Fórmula PRO")
+        renderizar_ranking(df_valid.copy(),'Score_Pro',f_pro,
+        "Fórmula PRO: Valoriza equilíbrio entre sobrevivência e agressividade. Foca em K/R alto, dano consistente e taxa de vitória.")
 
     with tab2:
         f_team = ((df_valid['vitorias']/df_valid['partidas_calc'])*1000)+((df_valid['revives']/df_valid['partidas_calc'])*50)+((df_valid['assists']/df_valid['partidas_calc'])*35)
-        renderizar_ranking(df_valid.copy(),'Score_Team',f_team,"Fórmula TEAM")
+        renderizar_ranking(df_valid.copy(),'Score_Team',f_team,
+        "Fórmula TEAM: Foco total no jogo coletivo. Pontua mais quem revive aliados, dá assistências e garante a vitória.")
 
     with tab3:
         f_elite = (df_valid['kr']*50)+((df_valid['headshots']/df_valid['partidas_calc'])*60)+(df_valid['dano_medio']/5)
-        renderizar_ranking(df_valid.copy(),'Score_Elite',f_elite,"Fórmula ELITE")
+        renderizar_ranking(df_valid.copy(),'Score_Elite',f_elite,
+        "Fórmula ELITE: Prioriza K/R, precisão de Headshots e volume de dano.")
 
     with tab4:
 
@@ -240,7 +220,8 @@ if not df_bruto.empty:
             df_bots = df_bots_raw[df_bots_raw['partidas'] > 0].copy()
 
             if not df_bots.empty:
-                renderizar_ranking(df_bots,'score',None,"Anti-Casual")
+                renderizar_ranking(df_bots,'score',None,
+                "Anti-Casual: Jogadores penalizados por matar bots em partidas no modo casual.")
             else:
                 st.info("Nenhuma penalidade registrada.")
 
