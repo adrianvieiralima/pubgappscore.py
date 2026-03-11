@@ -236,40 +236,92 @@ if not df_bruto.empty:
 # RENDER
 # =============================
 
-    def renderizar_ranking(df_local,col_score,formula,explicacao):
+   def renderizar_ranking(df_local,col_score,formula,explicacao):
 
-        if formula is not None:
-            df_local[col_score]=formula.round(2)
+    if formula is not None:
+        df_local[col_score]=formula.round(2)
 
-        ranking_final=processar_ranking_completo(df_local,col_score)
+    ranking_final=processar_ranking_completo(df_local,col_score)
 
-        top1,top2,top3=st.columns(3)
+    top1,top2,top3=st.columns(3)
 
-        with top1:
+    with top1:
+        nome=ranking_final.iloc[0]["nick"] if len(ranking_final)>0 else "-"
+        valor=f"{ranking_final.iloc[0][col_score]:.2f} pts" if len(ranking_final)>0 else "0.00 pts"
+        st.metric("🥇 1º Lugar",nome,valor)
 
-            nome=ranking_final.iloc[0]["nick"] if len(ranking_final)>0 else "-"
-            valor=f"{ranking_final.iloc[0][col_score]:.2f} pts" if len(ranking_final)>0 else "0.00 pts"
+    with top2:
+        nome=ranking_final.iloc[1]["nick"] if len(ranking_final)>1 else "-"
+        valor=f"{ranking_final.iloc[1][col_score]:.2f} pts" if len(ranking_final)>1 else "0.00 pts"
+        st.metric("🥈 2º Lugar",nome,valor)
 
-            st.metric("🥇 1º Lugar",nome,valor)
+    with top3:
+        nome=ranking_final.iloc[2]["nick"] if len(ranking_final)>2 else "-"
+        valor=f"{ranking_final.iloc[2][col_score]:.2f} pts" if len(ranking_final)>2 else "0.00 pts"
+        st.metric("🥉 3º Lugar",nome,valor)
 
-        with top2:
+    st.markdown(
+    f"<div style='background-color:#161b22;padding:12px;border-radius:8px;border-left:5px solid #0078ff;margin-bottom:20px;text-align:left;'>💡 {explicacao}</div>",
+    unsafe_allow_html=True
+    )
 
-            nome=ranking_final.iloc[1]["nick"] if len(ranking_final)>1 else "-"
-            valor=f"{ranking_final.iloc[1][col_score]:.2f} pts" if len(ranking_final)>1 else "0.00 pts"
+    st.dataframe(
+        ranking_final,
+        use_container_width=True,
+        hide_index=True
+    )
 
-            st.metric("🥈 2º Lugar",nome,valor)
+    # =============================
+    # CRITÉRIO DE PONTUAÇÃO
+    # =============================
 
-        with top3:
+    st.markdown("### ⚙️ Critério de Pontuação")
 
-            nome=ranking_final.iloc[2]["nick"] if len(ranking_final)>2 else "-"
-            valor=f"{ranking_final.iloc[2][col_score]:.2f} pts" if len(ranking_final)>2 else "0.00 pts"
+    c1,c2,c3=st.columns(3)
 
-            st.metric("🥉 3º Lugar",nome,valor)
+    if col_score=="Score_Pro":
 
-        st.markdown(
-        f"<div style='background-color:#161b22;padding:12px;border-radius:8px;border-left:5px solid #0078ff;margin-bottom:20px;text-align:left;'>💡 {explicacao}</div>",
-        unsafe_allow_html=True
-        )
+        with c1:
+            st.markdown("🎯 **K/R**  \n+40 pts por unidade")
+
+        with c2:
+            st.markdown("💥 **Dano Médio**  \n+1 pt a cada 8 de dano")
+
+        with c3:
+            st.markdown("👑 **Vitória**  \naté +500 pts pela taxa")
+
+    elif col_score=="Score_Team":
+
+        with c1:
+            st.markdown("👑 **Vitória**  \naté +1000 pts pela taxa")
+
+        with c2:
+            st.markdown("❤️ **Revive**  \n+50 pts por revive")
+
+        with c3:
+            st.markdown("🤝 **Assist**  \n+35 pts por assistência")
+
+    elif col_score=="Score_Elite":
+
+        with c1:
+            st.markdown("🎯 **K/R**  \n+50 pts por unidade")
+
+        with c2:
+            st.markdown("🔫 **Headshots**  \n+60 pts por headshot")
+
+        with c3:
+            st.markdown("💥 **Dano Médio**  \n+1 pt a cada 5 de dano")
+
+    elif col_score=="score":
+
+        with c1:
+            st.markdown("🤖 **Kill em Bot**  \n-10 pts por kill")
+
+        with c2:
+            st.markdown("💥 **Dano em Bot**  \n-0.1 pt por dano")
+
+        with c3:
+            st.markdown("⚠️ **Modo Casual**  \ngera penalidade")
 
 # =============================
 # FORMAT
@@ -334,104 +386,7 @@ if not df_bruto.empty:
     }
 )
 
-        # NOVA DESCRIÇÃO NO RODAPÉ
-
-        st.markdown("### ⚙️ Critério de Pontuação")
-
-c1, c2, c3 = st.columns(3)
-
-if col_score == "Score_Pro":
-
-    with c1:
-        st.markdown("""
-        🎯 **K/R**
-        
-        +40 pts por unidade
-        """)
-
-    with c2:
-        st.markdown("""
-        💥 **Dano Médio**
-        
-        +1 pt a cada 8 de dano
-        """)
-
-    with c3:
-        st.markdown("""
-        👑 **Vitória**
-        
-        até +500 pts pela taxa
-        """)
-
-elif col_score == "Score_Team":
-
-    with c1:
-        st.markdown("""
-        👑 **Vitória**
-        
-        até +1000 pts pela taxa
-        """)
-
-    with c2:
-        st.markdown("""
-        ❤️ **Revive**
-        
-        +50 pts por revive
-        """)
-
-    with c3:
-        st.markdown("""
-        🤝 **Assist**
-        
-        +35 pts por assistência
-        """)
-
-elif col_score == "Score_Elite":
-
-    with c1:
-        st.markdown("""
-        🎯 **K/R**
-        
-        +50 pts por unidade
-        """)
-
-    with c2:
-        st.markdown("""
-        🔫 **Headshots**
-        
-        +60 pts por headshot
-        """)
-
-    with c3:
-        st.markdown("""
-        💥 **Dano Médio**
-        
-        +1 pt a cada 5 de dano
-        """)
-
-elif col_score == "score":
-
-    with c1:
-        st.markdown("""
-        🤖 **Kill em Bot**
-        
-        -10 pts por kill
-        """)
-
-    with c2:
-        st.markdown("""
-        💥 **Dano em Bot**
-        
-        -0.1 pt por dano
-        """)
-
-    with c3:
-        st.markdown("""
-        ⚠️ **Modo Casual**
-        
-        gera penalidade
-        """)
-        
+     
 # =============================
 # TABS
 # =============================
