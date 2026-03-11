@@ -338,99 +338,99 @@ if not df_bruto.empty:
 
         st.markdown("### ⚙️ Critério de Pontuação")
 
-        c1, c2, c3 = st.columns(3)
+c1, c2, c3 = st.columns(3)
 
-        if col_score == "Score_Pro":
+if col_score == "Score_Pro":
 
-            with c1:
-            st.markdown("""
-            **K/R**
+    with c1:
+        st.markdown("""
+        🎯 **K/R**
         
-            +40 pts por unidade
-            """)
+        +40 pts por unidade
+        """)
 
-            with c2:
-            st.markdown("""
-            **Dano Médio**
+    with c2:
+        st.markdown("""
+        💥 **Dano Médio**
         
-            +1 pt a cada 8 de dano
-            """)
+        +1 pt a cada 8 de dano
+        """)
 
-            with c3:
-            st.markdown("""
-            **Vitória**
+    with c3:
+        st.markdown("""
+        👑 **Vitória**
         
-            até +500 pts pela taxa
-            """)
+        até +500 pts pela taxa
+        """)
 
-    elif col_score == "Score_Team":
+elif col_score == "Score_Team":
 
-            with c1:
-            st.markdown("""
-            **Vitória**
+    with c1:
+        st.markdown("""
+        👑 **Vitória**
         
-            até +1000 pts pela taxa
-            """)
+        até +1000 pts pela taxa
+        """)
 
-            with c2:
-            st.markdown("""
-            **Revive**
+    with c2:
+        st.markdown("""
+        ❤️ **Revive**
         
-            +50 pts por revive
-            """)
+        +50 pts por revive
+        """)
 
-            with c3:
-            st.markdown("""
-            **Assist**
+    with c3:
+        st.markdown("""
+        🤝 **Assist**
         
-            +35 pts por assistência
-            """)
+        +35 pts por assistência
+        """)
 
-    elif col_score == "Score_Elite":
+elif col_score == "Score_Elite":
 
-            with c1:
-            st.markdown("""
-            **K/R**
+    with c1:
+        st.markdown("""
+        🎯 **K/R**
         
-            +50 pts por unidade
-            """)
+        +50 pts por unidade
+        """)
 
-            with c2:
-            st.markdown("""
-            **Headshots**
+    with c2:
+        st.markdown("""
+        🔫 **Headshots**
         
-            +60 pts por headshot
-            """)
+        +60 pts por headshot
+        """)
 
-            with c3:
-            st.markdown("""
-            **Dano Médio**
+    with c3:
+        st.markdown("""
+        💥 **Dano Médio**
         
-            +1 pt a cada 5 de dano
-            """)
+        +1 pt a cada 5 de dano
+        """)
 
-    elif col_score == "score":
+elif col_score == "score":
 
-            with c1:
-            st.markdown("""
-            **Kill em bot**
+    with c1:
+        st.markdown("""
+        🤖 **Kill em Bot**
         
-            -10 pts por kill
-            """)
+        -10 pts por kill
+        """)
 
-            with c2:
-            st.markdown("""
-            **Dano em bot**
+    with c2:
+        st.markdown("""
+        💥 **Dano em Bot**
         
-            -0.1 pt por dano
-            """)
+        -0.1 pt por dano
+        """)
 
-            with c3:
-            st.markdown("""
-            **Modo Casual**
+    with c3:
+        st.markdown("""
+        ⚠️ **Modo Casual**
         
-            gera penalidade
-            """)
+        gera penalidade
+        """)
         
 # =============================
 # TABS
