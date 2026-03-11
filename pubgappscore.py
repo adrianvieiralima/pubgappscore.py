@@ -333,6 +333,14 @@ if not df_bruto.empty:
         "score": "Penalidade"
     }
 )
+
+    # NOVA DESCRIÇÃO NO RODAPÉ
+
+        st.markdown(
+        f"<div style='color:#888;font-size:13px;margin-top:10px;margin-bottom:30px;text-align:left;'>ℹ️ Critério de pontuação: {explicacao}</div>",
+        unsafe_allow_html=True
+        )
+        
 # =============================
 # TABS
 # =============================
