@@ -334,12 +334,103 @@ if not df_bruto.empty:
     }
 )
 
-    # NOVA DESCRIÇÃO NO RODAPÉ
+        # NOVA DESCRIÇÃO NO RODAPÉ
 
-        st.markdown(
-        f"<div style='color:#888;font-size:13px;margin-top:10px;margin-bottom:30px;text-align:left;'>ℹ️ Critério de pontuação: {explicacao}</div>",
-        unsafe_allow_html=True
-        )
+        st.markdown("### ⚙️ Critério de Pontuação")
+
+        c1, c2, c3 = st.columns(3)
+
+        if col_score == "Score_Pro":
+
+            with c1:
+            st.markdown("""
+            **K/R**
+        
+            +40 pts por unidade
+            """)
+
+            with c2:
+            st.markdown("""
+            **Dano Médio**
+        
+            +1 pt a cada 8 de dano
+            """)
+
+            with c3:
+            st.markdown("""
+            **Vitória**
+        
+            até +500 pts pela taxa
+            """)
+
+    elif col_score == "Score_Team":
+
+            with c1:
+            st.markdown("""
+            **Vitória**
+        
+            até +1000 pts pela taxa
+            """)
+
+            with c2:
+            st.markdown("""
+            **Revive**
+        
+            +50 pts por revive
+            """)
+
+            with c3:
+            st.markdown("""
+            **Assist**
+        
+            +35 pts por assistência
+            """)
+
+    elif col_score == "Score_Elite":
+
+            with c1:
+            st.markdown("""
+            **K/R**
+        
+            +50 pts por unidade
+            """)
+
+            with c2:
+            st.markdown("""
+            **Headshots**
+        
+            +60 pts por headshot
+            """)
+
+            with c3:
+            st.markdown("""
+            **Dano Médio**
+        
+            +1 pt a cada 5 de dano
+            """)
+
+    elif col_score == "score":
+
+            with c1:
+            st.markdown("""
+            **Kill em bot**
+        
+            -10 pts por kill
+            """)
+
+            with c2:
+            st.markdown("""
+            **Dano em bot**
+        
+            -0.1 pt por dano
+            """)
+
+            with c3:
+            st.markdown("""
+            **Modo Casual**
+        
+            gera penalidade
+            """)
         
 # =============================
 # TABS
