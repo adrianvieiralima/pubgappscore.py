@@ -2,6 +2,7 @@ import streamlit as st
 import pandas as pd
 import subprocess
 import sys
+from datetime import datetime
 
 # =============================
 # ATUALIZAÇÃO AUTOMÁTICA DO BANCO
@@ -183,12 +184,36 @@ if not df_bruto.empty:
         return [""]*len(row)
 
 # =============================
+# FUNÇÃO DE PENALIDADE POR INATIVIDADE
+# =============================
+
+    def aplicar_decaimento(df_local, col_score):
+        # Converte a coluna para datetime caso não esteja
+        df_local["ultima_atualizacao"] = pd.to_datetime(df_local["ultima_atualizacao"])
+        hoje = pd.Timestamp.now()
+        
+        # Calcula dias de inatividade
+        df_local["dias_inativo"] = (hoje - df_local["ultima_atualizacao"]).dt.days
+        
+        # Regra: A cada 7 dias, desconta 15% (multiplicador acumulativo)
+        # Se 7-13 dias = 1 vez, 14-20 dias = 2 vezes...
+        df_local["semanas_inativo"] = df_local["dias_inativo"] // 7
+        
+        # Aplica a penalidade: Score * (0.85 ^ semanas_inativo)
+        df_local[col_score] = df_local[col_score] * (0.85 ** df_local["semanas_inativo"])
+        return df_local
+
+# =============================
 # RENDER
 # =============================
 
     def renderizar_ranking(df_local,col_score,formula,explicacao,calculo_discreto=""):
         if formula is not None:
             df_local[col_score]=formula.round(2)
+            
+            # APLICA A REGRA DE INATIVIDADE (Exceto no ranking de bots)
+            if col_score != "score":
+                df_local = aplicar_decaimento(df_local, col_score)
 
         ranking_final=processar_ranking_completo(df_local,col_score)
         top1,top2,top3=st.columns(3)
@@ -211,7 +236,7 @@ if not df_bruto.empty:
         unsafe_allow_html=True
         )
         if calculo_discreto:
-            st.caption(f"⚙️ Cálculo: {calculo_discreto}")
+            st.caption(f"⚙️ Cálculo: {calculo_discreto} | ⚠️ Penalidade: -15% a cada 7 dias de inatividade.")
 
         if col_score=="score":
             format_dict={
@@ -324,7 +349,7 @@ if not df_bruto.empty:
                 st.info("Nenhuma penalidade registrada.")
 
     # =============================
-    # ESTATÍSTICAS COMPLETAS (ABAIXO DO RANKING)
+    # ESTATÍSTICAS COMPLETAS
     # =============================
     st.markdown("---")
     st.markdown("### 📊 Performance Comparativa (Top 5)")
