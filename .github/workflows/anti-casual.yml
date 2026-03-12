@@ -2,8 +2,11 @@ name: Anti-Casual Sync
 
 on:
   schedule:
-    - cron: '0 */6 * * *' # Roda a cada 6 horas
-  workflow_dispatch: # Permite rodar manualmente
+    - cron: '0 */6 * * *'
+  workflow_dispatch:
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
 jobs:
   build:
