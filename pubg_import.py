@@ -97,7 +97,7 @@ def buscar_stats(player, p_id):
 
     kills = stats.get("kills", 0)
     vitorias = stats.get("wins", 0)
-    top10 = stats.get("top10s", 0) # NOVO: Captura o dado Top 10 da API
+    top10 = stats.get("top10s", 0)
     assists = stats.get("assists", 0)
     headshots = stats.get("headshotKills", 0)
     revives = stats.get("revives", 0)
@@ -133,19 +133,25 @@ with ThreadPoolExecutor(max_workers=5) as executor:
 print(f"✅ {len(resultados)} jogadores com stats válidas.")
 
 # ===============================
-# BATCH INSERT
+# BATCH INSERT COM TRAVA DE DATA
 # ===============================
 
 try:
     conn = psycopg2.connect(DATABASE_URL)
     cursor = conn.cursor()
 
+    # Ajuste na lógica ON CONFLICT: 
+    # A data atualizado_em só muda se o número de partidas for diferente.
     sql = """
-    INSERT INTO ranking_squad
-    (nick, partidas, kr, vitorias, top10, kills, dano_medio,
+    INSERT INTO ranking_squad 
+    (nick, partidas, kr, vitorias, top10, kills, dano_medio, 
      assists, headshots, revives, kill_dist_max, atualizado_em)
     VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
     ON CONFLICT (nick) DO UPDATE SET
+    atualizado_em = CASE 
+        WHEN ranking_squad.partidas <> EXCLUDED.partidas THEN EXCLUDED.atualizado_em 
+        ELSE ranking_squad.atualizado_em 
+    END,
     partidas=EXCLUDED.partidas,
     kr=EXCLUDED.kr,
     vitorias=EXCLUDED.vitorias,
@@ -155,8 +161,7 @@ try:
     assists=EXCLUDED.assists,
     headshots=EXCLUDED.headshots,
     revives=EXCLUDED.revives,
-    kill_dist_max=EXCLUDED.kill_dist_max,
-    atualizado_em=EXCLUDED.atualizado_em
+    kill_dist_max=EXCLUDED.kill_dist_max;
     """
 
     cursor.executemany(sql, resultados)
@@ -165,7 +170,7 @@ try:
     cursor.close()
     conn.close()
 
-    print("💾 Banco atualizado com sucesso!")
+    print("💾 Banco atualizado com sucesso (Trava de inatividade aplicada)!")
 
 except Exception as e:
     print(f"💥 Erro no banco: {e}")
