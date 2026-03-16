@@ -287,7 +287,7 @@ if not df_bruto.empty:
         )
 
 # =============================
-# TABS
+# TABS (SISTEMA DE PONTUAÇÃO ATUALIZADO)
 # =============================
 
     tab1,tab2,tab3,tab4=st.tabs([
@@ -304,36 +304,55 @@ if not df_bruto.empty:
         df_valid["top10"] = 0
 
     with tab1:
-        # Justo: Taxa de Top 10 (aproveitamento)
-        f_pro=(df_valid["kr"]*40)+(df_valid["dano_medio"]/8)+((df_valid["vitorias"]/df_valid["partidas_calc"])*500)+((df_valid["top10"]/df_valid["partidas_calc"])*100)
+        # PRO Player: Equilíbrio agressivo com peso extra em vitórias e eficiência média.
+        f_pro = (
+            (df_valid["vitorias"] / df_valid["partidas_calc"] * 5) + 
+            (df_valid["kills"] / df_valid["partidas_calc"] * 0.5) + 
+            (df_valid["revives"] / df_valid["partidas_calc"] * 0.33) + 
+            (df_valid["headshots"] / df_valid["partidas_calc"] * 0.2) + 
+            (df_valid["assists"] / df_valid["partidas_calc"] * 0.1) + 
+            (df_valid["top10"] / df_valid["partidas_calc"] * 0.3) + # Peso Top 10 aumentado para 0.3
+            (df_valid["dano_medio"] * 0.002) # Peso Dano aumentado para 0.002
+        )
         renderizar_ranking(
             df_valid.copy(),
             "Score_Pro",
             f_pro,
-            "Fórmula PRO: Valoriza o equilíbrio entre agressividade e consistência. Pontuação máxima baseada em aproveitamento (médias), não apenas volume.",
-            "(KR × 40) + (Dano Médio / 8) + (Win Rate × 500) + (Taxa de Top 10 × 100)"
+            "Fórmula PRO: Valoriza o equilíbrio entre agressividade e consistência. Pontuação baseada na média de pontos por partida.",
+            "(Win: 5 | Kill: 0.5 | Revive: 0.33 | Capa: 0.2 | Assist/Top10: 0.1~0.3 | Dano: 0.002)"
         )
 
     with tab2:
-        # Justo: Taxa de Top 10 (aproveitamento)
-        f_team=((df_valid["vitorias"]/df_valid["partidas_calc"])*1000)+((df_valid["revives"]/df_valid["partidas_calc"])*50)+((df_valid["assists"]/df_valid["partidas_calc"])*35)+((df_valid["top10"]/df_valid["partidas_calc"])*200)
+        # TEAM Player: Foco total em suporte e sobrevivência (Top 10 e Revives).
+        f_team = (
+            (df_valid["vitorias"] / df_valid["partidas_calc"] * 6) + # Bônus de vitória extra
+            (df_valid["revives"] / df_valid["partidas_calc"] * 1.5) + # Grande foco em revives
+            (df_valid["assists"] / df_valid["partidas_calc"] * 0.8) + # Foco em assistência
+            (df_valid["top10"] / df_valid["partidas_calc"] * 2.0) + # Top 10 é o pilar do Team Player
+            (df_valid["dano_medio"] * 0.001)
+        )
         renderizar_ranking(
             df_valid.copy(),
             "Score_Team",
             f_team,
-            "Fórmula TEAM: Foco total no coletivo e sobrevivência. Premia quem tem a maior porcentagem de partidas chegando ao fim.",
-            "(Win Rate × 1000) + (Média Revives × 50) + (Média Assists × 35) + (Taxa de Top 10 × 200)"
+            "Fórmula TEAM: Foco total no coletivo e sobrevivência. Premia quem garante a estabilidade do squad.",
+            "(Win: 6 | Revive: 1.5 | Assist: 0.8 | Top10: 2.0)"
         )
 
     with tab3:
-        # Justo: Taxa de Top 10 (aproveitamento)
-        f_elite=(df_valid["kr"]*50)+((df_valid["headshots"]/df_valid["partidas_calc"])*60)+(df_valid["dano_medio"]/5)+((df_valid["top10"]/df_valid["partidas_calc"])*50)
+        # Atirador de Elite: Foco em Kills, KR, Headshots e Dano.
+        f_elite = (
+            (df_valid["kr"] * 1.5) + 
+            (df_valid["headshots"] / df_valid["partidas_calc"] * 2.5) + # Foco em precisão
+            (df_valid["dano_medio"] * 0.01) + # Dano é vital para o sniper
+            (df_valid["kill_dist_max"] / 100) # Pequeno bônus por distância
+        )
         renderizar_ranking(
             df_valid.copy(),
             "Score_Elite",
             f_elite,
-            "Fórmula ELITE: Prioriza precisão e K/R. O Top 10 atua como um bônus de eficiência por partida jogada.",
-            "(KR × 50) + (Média Headshots × 60) + (Dano Médio / 5) + (Taxa de Top 10 × 50)"
+            "Fórmula ELITE: Prioriza precisão, K/R e impacto direto em dano.",
+            "(KR: 1.5 | Headshot: 2.5 | Dano: 0.01 | Distância: /100)"
         )
 
     with tab4:
