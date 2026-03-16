@@ -68,11 +68,12 @@ def processar_player(conn, player_name, player_id):
                 # Cálculo do KR e Score
                 score_penalidade = (kills * 10) + (dano * 0.1)
 
-                # UPDATE COMPLETO COM CÁLCULO DE KR CORRIGIDO
+                # UPDATE COMPLETO COM CÁLCULO DE KR CORRIGIDO E TOP10
                 cur.execute("""
                     UPDATE ranking_bot SET
                         partidas = partidas + 1,
                         vitorias = vitorias + %s,
+                        top10 = top10 + %s,
                         kills = kills - %s,
                         score = score - %s,
                         dano_medio = dano_medio + %s,
@@ -86,6 +87,7 @@ def processar_player(conn, player_name, player_id):
                     WHERE nick = %s
                 """, (
                     1 if p_stats.get("winPlace") == 1 else 0,
+                    1 if p_stats.get("winPlace") <= 10 else 0, # Novo: Incrementa top10
                     kills, score_penalidade, dano,
                     p_stats.get("assists", 0),
                     p_stats.get("headshotKills", 0),
@@ -107,18 +109,7 @@ if __name__ == "__main__":
     else:
         conn = psycopg2.connect(DATABASE_URL)
         
-        # --- PASSO IMPORTANTE: LIMPANDO O HISTÓRICO PARA REPROCESSAR ---
-        #print("🧹 Limpando dados antigos para atualizar colunas...")
-        #with conn.cursor() as c:
-        #    c.execute("DELETE FROM matches_processadas;")
-        #    c.execute("""
-        #        UPDATE ranking_bot SET 
-        #        partidas=0, vitorias=0, kills=0, score=0, 
-        #        dano_medio=0, assists=0, headshots=0, 
-        #        revives=0, kill_dist_max=0, kr=0;
-        #    """)
-        #conn.commit()
-
+        # O histórico permanece seguro; o script apenas processa novas partidas
         for name, pid in PLAYERS.items():
             processar_player(conn, name, pid)
         
