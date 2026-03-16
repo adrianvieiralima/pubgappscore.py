@@ -115,7 +115,7 @@ def processar_ranking_completo(df_ranking, col_score):
 
     cols_base=[
         "Pos","Classificação","nick",
-        "partidas","kr","vitorias",
+        "partidas","kr","vitorias", "top10", # Incluído Top10 aqui
         "kills","assists","headshots",
         "revives","kill_dist_max","dano_medio"
     ]
@@ -151,12 +151,13 @@ if not df_bruto.empty:
     st.markdown("---")
 
     cols_calc=[
-        "partidas","vitorias","kills",
+        "partidas","vitorias","top10","kills", # Incluído top10 no cálculo numérico
         "assists","headshots","revives","dano_medio"
     ]
 
     for col in cols_calc:
-        df_bruto[col]=pd.to_numeric(df_bruto[col],errors="coerce").fillna(0)
+        if col in df_bruto.columns:
+            df_bruto[col]=pd.to_numeric(df_bruto[col],errors="coerce").fillna(0)
         if not df_bots_raw.empty and col in df_bots_raw.columns:
             df_bots_raw[col]=pd.to_numeric(df_bots_raw[col],errors="coerce").fillna(0)
 
@@ -174,7 +175,8 @@ if not df_bruto.empty:
                 df_bruto.loc[df_bruto["nick"]==nick_bot,"kr"]=k_limpas/p_limpas
 
     for col in cols_calc:
-        df_bruto[col]=df_bruto[col].astype(int)
+        if col in df_bruto.columns:
+            df_bruto[col]=df_bruto[col].astype(int)
 
     def highlight_zones(row):
         if row["Classificação"]=="Elite Zone":
@@ -188,18 +190,10 @@ if not df_bruto.empty:
 # =============================
 
     def aplicar_decaimento(df_local, col_score):
-        # Converte a coluna para datetime caso não esteja
         df_local["ultima_atualizacao"] = pd.to_datetime(df_local["ultima_atualizacao"])
         hoje = pd.Timestamp.now()
-        
-        # Calcula dias de inatividade
         df_local["dias_inativo"] = (hoje - df_local["ultima_atualizacao"]).dt.days
-        
-        # Regra: A cada 7 dias, desconta 15% (multiplicador acumulativo)
-        # Se 7-13 dias = 1 vez, 14-20 dias = 2 vezes...
         df_local["semanas_inativo"] = df_local["dias_inativo"] // 7
-        
-        # Aplica a penalidade: Score * (0.85 ^ semanas_inativo)
         df_local[col_score] = df_local[col_score] * (0.85 ** df_local["semanas_inativo"])
         return df_local
 
@@ -210,8 +204,6 @@ if not df_bruto.empty:
     def renderizar_ranking(df_local,col_score,formula,explicacao,calculo_discreto=""):
         if formula is not None:
             df_local[col_score]=formula.round(2)
-            
-            # APLICA A REGRA DE INATIVIDADE (Exceto no ranking de bots)
             if col_score != "score":
                 df_local = aplicar_decaimento(df_local, col_score)
 
@@ -244,6 +236,7 @@ if not df_bruto.empty:
                 "kill_dist_max":lambda x:f"- {abs(x):.2f}",
                 "partidas":lambda x:f"- {int(abs(x))}",
                 "vitorias":lambda x:f"- {int(abs(x))}",
+                "top10":lambda x:f"- {int(abs(x))}",
                 "kills":lambda x:f"- {int(abs(x))}",
                 "assists":lambda x:f"- {int(abs(x))}",
                 "headshots":lambda x:f"- {int(abs(x))}",
@@ -258,6 +251,7 @@ if not df_bruto.empty:
                 col_score:"{:.2f}",
                 "partidas":"{:d}",
                 "vitorias":"{:d}",
+                "top10":"{:d}",
                 "kills":"{:d}",
                 "assists":"{:d}",
                 "headshots":"{:d}",
@@ -278,6 +272,7 @@ if not df_bruto.empty:
                 "partidas": "Partidas",
                 "kr": "K/R",
                 "vitorias": "Vitórias",
+                "top10": "Top 10s",
                 "kills": "Kills",
                 "assists": "Assists",
                 "headshots": "Headshots",
@@ -304,35 +299,39 @@ if not df_bruto.empty:
 
     df_valid=df_bruto[df_bruto["partidas"]>0].copy()
     df_valid["partidas_calc"]=df_valid["partidas"].replace(0,1)
+    
+    # Previne erro se a coluna top10 ainda não existir no dataframe
+    if "top10" not in df_valid.columns:
+        df_valid["top10"] = 0
 
     with tab1:
-        f_pro=(df_valid["kr"]*40)+(df_valid["dano_medio"]/8)+((df_valid["vitorias"]/df_valid["partidas_calc"])*500)
+        f_pro=(df_valid["kr"]*40)+(df_valid["dano_medio"]/8)+((df_valid["vitorias"]/df_valid["partidas_calc"])*500)+(df_valid["top10"]*15)
         renderizar_ranking(
             df_valid.copy(),
             "Score_Pro",
             f_pro,
-            "Fórmula PRO: Valoriza equilíbrio entre sobrevivência e agressividade. Foca em K/R alto, dano consistente e taxa de vitória.",
-            "(KR × 40) + (Dano Médio / 8) + (Win Rate × 500)"
+            "Fórmula PRO: Valoriza equilíbrio entre sobrevivência e agressividade. Foca em K/R alto, dano consistente, taxa de vitória e frequência no Top 10.",
+            "(KR × 40) + (Dano Médio / 8) + (Win Rate × 500) + (Top 10s × 15)"
         )
 
     with tab2:
-        f_team=((df_valid["vitorias"]/df_valid["partidas_calc"])*1000)+((df_valid["revives"]/df_valid["partidas_calc"])*50)+((df_valid["assists"]/df_valid["partidas_calc"])*35)
+        f_team=((df_valid["vitorias"]/df_valid["partidas_calc"])*1000)+((df_valid["revives"]/df_valid["partidas_calc"])*50)+((df_valid["assists"]/df_valid["partidas_calc"])*35)+(df_valid["top10"]*30)
         renderizar_ranking(
             df_valid.copy(),
             "Score_Team",
             f_team,
-            "Fórmula TEAM: Foco total no jogo coletivo. Pontua mais quem revive aliados, dá assistências e garante a vitória.",
-            "(Win Rate × 1000) + (Média Revives × 50) + (Média Assists × 35)"
+            "Fórmula TEAM: Foco total no jogo coletivo. Pontua mais quem garante vitórias, sobrevive até o Top 10 e ajuda aliados.",
+            "(Win Rate × 1000) + (Média Revives × 50) + (Média Assists × 35) + (Top 10s × 30)"
         )
 
     with tab3:
-        f_elite=(df_valid["kr"]*50)+((df_valid["headshots"]/df_valid["partidas_calc"])*60)+(df_valid["dano_medio"]/5)
+        f_elite=(df_valid["kr"]*50)+((df_valid["headshots"]/df_valid["partidas_calc"])*60)+(df_valid["dano_medio"]/5)+(df_valid["top10"]*10)
         renderizar_ranking(
             df_valid.copy(),
             "Score_Elite",
             f_elite,
-            "Fórmula ELITE: Prioriza K/R, precisão de Headshots e volume de dano.",
-            "(KR × 50) + (Média Headshots × 60) + (Dano Médio / 5)"
+            "Fórmula ELITE: Prioriza K/R, precisão de Headshots, volume de dano e consistência em chegar ao Top 10.",
+            "(KR × 50) + (Média Headshots × 60) + (Dano Médio / 5) + (Top 10s × 10)"
         )
 
     with tab4:
@@ -359,8 +358,8 @@ if not df_bruto.empty:
         with col_g1:
             st.write("🔥 **Dano Médio**")
             st.bar_chart(df_valid.nlargest(5, 'dano_medio').set_index('nick')['dano_medio'], color="#ff4b4b", horizontal=True)
-            st.write("💀 **Headshots Totais**")
-            st.bar_chart(df_valid.nlargest(5, 'headshots').set_index('nick')['headshots'], color="#0078ff", horizontal=True)
+            st.write("🔟 **Top 10s Acumulados**") # Gráfico de Top 10 no lugar de HS
+            st.bar_chart(df_valid.nlargest(5, 'top10').set_index('nick')['top10'], color="#f1c40f", horizontal=True)
         with col_g2:
             st.write("🎯 **Kills Totais**")
             st.bar_chart(df_valid.nlargest(5, 'kills').set_index('nick')['kills'], color="#f63366", horizontal=True)
