@@ -287,7 +287,7 @@ if not df_bruto.empty:
         )
 
 # =============================
-# TABS (SISTEMA DE PONTUAÇÃO ATUALIZADO)
+# TABS (SISTEMA DE PONTUAÇÃO ANALÍTICO)
 # =============================
 
     tab1,tab2,tab3,tab4=st.tabs([
@@ -304,55 +304,55 @@ if not df_bruto.empty:
         df_valid["top10"] = 0
 
     with tab1:
-        # PRO Player: Equilíbrio agressivo com peso extra em vitórias e eficiência média.
+        # FÓRMULA ANALÍTICA PRO: Baseada em Eficiência por Partida (PPP)
+        # Equilibra Vitória (5.0) com Kills (0.5) e Dano Consistente (0.002)
         f_pro = (
-            (df_valid["vitorias"] / df_valid["partidas_calc"] * 5) + 
+            (df_valid["vitorias"] / df_valid["partidas_calc"] * 5.0) + 
             (df_valid["kills"] / df_valid["partidas_calc"] * 0.5) + 
-            (df_valid["revives"] / df_valid["partidas_calc"] * 0.33) + 
-            (df_valid["headshots"] / df_valid["partidas_calc"] * 0.2) + 
-            (df_valid["assists"] / df_valid["partidas_calc"] * 0.1) + 
-            (df_valid["top10"] / df_valid["partidas_calc"] * 0.3) + # Peso Top 10 aumentado para 0.3
-            (df_valid["dano_medio"] * 0.002) # Peso Dano aumentado para 0.002
+            (df_valid["top10"] / df_valid["partidas_calc"] * 0.5) + # Top 10 equilibrado com Kill
+            (df_valid["dano_medio"] * 0.002) + 
+            (df_valid["revives"] / df_valid["partidas_calc"] * 0.33)
         )
         renderizar_ranking(
             df_valid.copy(),
             "Score_Pro",
             f_pro,
-            "Fórmula PRO: Valoriza o equilíbrio entre agressividade e consistência. Pontuação baseada na média de pontos por partida.",
-            "(Win: 5 | Kill: 0.5 | Revive: 0.33 | Capa: 0.2 | Assist/Top10: 0.1~0.3 | Dano: 0.002)"
+            "Fórmula PRO: Foco em Eficiência por Partida. Valoriza quem ganha e mata com constância.",
+            "Σ(Win:5.0, Kill:0.5, Top10:0.5, Dano:0.002, Rev:0.33) / Partidas"
         )
 
     with tab2:
-        # TEAM Player: Foco total em suporte e sobrevivência (Top 10 e Revives).
+        # FÓRMULA ANALÍTICA TEAM: Valoriza a Sobrevivência e Suporte
+        # Top 10 e Revives têm peso crítico.
         f_team = (
-            (df_valid["vitorias"] / df_valid["partidas_calc"] * 6) + # Bônus de vitória extra
-            (df_valid["revives"] / df_valid["partidas_calc"] * 1.5) + # Grande foco em revives
-            (df_valid["assists"] / df_valid["partidas_calc"] * 0.8) + # Foco em assistência
-            (df_valid["top10"] / df_valid["partidas_calc"] * 2.0) + # Top 10 é o pilar do Team Player
-            (df_valid["dano_medio"] * 0.001)
+            (df_valid["vitorias"] / df_valid["partidas_calc"] * 7.0) + 
+            (df_valid["top10"] / df_valid["partidas_calc"] * 2.5) + 
+            (df_valid["revives"] / df_valid["partidas_calc"] * 1.0) + 
+            (df_valid["assists"] / df_valid["partidas_calc"] * 0.5)
         )
         renderizar_ranking(
             df_valid.copy(),
             "Score_Team",
             f_team,
-            "Fórmula TEAM: Foco total no coletivo e sobrevivência. Premia quem garante a estabilidade do squad.",
-            "(Win: 6 | Revive: 1.5 | Assist: 0.8 | Top10: 2.0)"
+            "Fórmula TEAM: Foco em Sobrevivência e Suporte. Pontua alto quem coloca o squad no Top 10.",
+            "Σ(Win:7.0, Top10:2.5, Rev:1.0, Assist:0.5) / Partidas"
         )
 
     with tab3:
-        # Atirador de Elite: Foco em Kills, KR, Headshots e Dano.
+        # FÓRMULA ANALÍTICA ELITE: Letalidade e Precisão
+        # Dano e Headshots são os pilares.
         f_elite = (
-            (df_valid["kr"] * 1.5) + 
-            (df_valid["headshots"] / df_valid["partidas_calc"] * 2.5) + # Foco em precisão
-            (df_valid["dano_medio"] * 0.01) + # Dano é vital para o sniper
-            (df_valid["kill_dist_max"] / 100) # Pequeno bônus por distância
+            (df_valid["kr"] * 2.0) + 
+            (df_valid["headshots"] / df_valid["partidas_calc"] * 1.5) + 
+            (df_valid["dano_medio"] * 0.005) + # Dano com peso agressivo
+            (df_valid["kill_dist_max"] / 200)
         )
         renderizar_ranking(
             df_valid.copy(),
             "Score_Elite",
             f_elite,
-            "Fórmula ELITE: Prioriza precisão, K/R e impacto direto em dano.",
-            "(KR: 1.5 | Headshot: 2.5 | Dano: 0.01 | Distância: /100)"
+            "Fórmula ELITE: Foco em Letalidade Técnica. Valoriza K/R alto e precisão de headshots.",
+            "Σ(KR:2.0, Headshot:1.5, Dano:0.005, Dist/200)"
         )
 
     with tab4:
@@ -369,7 +369,7 @@ if not df_bruto.empty:
                 st.info("Nenhuma penalidade registrada.")
 
     # =============================
-    # ESTATÍSTICAS COMPLETAS
+    # ESTATÍSTICAS COMPLETAS (GRÁFICOS ORIGINAIS)
     # =============================
     st.markdown("---")
     st.markdown("### 📊 Performance Comparativa (Top 5)")
