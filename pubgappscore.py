@@ -304,9 +304,8 @@ if not df_bruto.empty:
         df_valid["top10"] = 0
 
     with tab1:
-        # FÓRMULA PRO ATUALIZADA
-        # Win: 5.0 | Kill: 0.5 | Top10: 0.5 
-        # Assist: 0.2 | Headshot: 0.1 | Dano: 0.002 | Rev: 0.33
+        # FÓRMULA PRO AJUSTADA: Eficiência por Partida
+        # Win: 5.0 | Kill: 0.5 | Top10: 0.5 | Assist: 0.2 | Headshot: 0.1 | Dano: 0.002 | Rev: 0.33
         f_pro = (
             (df_valid["vitorias"]   / df_valid["partidas_calc"] * 5.0) +
             (df_valid["kills"]      / df_valid["partidas_calc"] * 0.5) +
@@ -323,21 +322,9 @@ if not df_bruto.empty:
             "Fórmula PRO: Foco em Eficiência por Partida. Valoriza quem ganha e mata com constância.",
             "Σ(Win:5.0, Kill:0.5, Top10:0.5, Assist:0.2, Headshot:0.1, Dano:0.002, Rev:0.33) / Partidas"
         )
-        renderizar_ranking(
-            df_valid.copy(),
-            "Score_Pro",
-            f_pro,
-            "Fórmula PRO: Foco em Eficiência por Partida. Valoriza quem ganha e mata com constância e qualidade.",
-            "Σ(Win:5.0, Kill:0.5, Top10:0.5, Assist:0.3, Headshot:0.4, Dano:0.002, Rev:0.33) / Partidas"
-        )
 
     with tab2:
-        # FÓRMULA TEAM: Sobrevivência, Suporte e Contribuição de Combate
-        # Vitória (7.0) e Top10 (2.5) mantidos como pilares de sobrevivência.
-        # Revives (1.0) e Assists (0.5) mantidos para suporte.
-        # Headshots/partida (0.3) adicionado: qualidade mínima de combate é parte do suporte.
-        # Dano médio (0.001) adicionado com peso leve: garante que suporte puro sem combate
-        # não supere quem contribui também na troca de tiros.
+        # FÓRMULA TEAM: Sobrevivência e Suporte
         f_team = (
             (df_valid["vitorias"]  / df_valid["partidas_calc"] * 7.0) +
             (df_valid["top10"]     / df_valid["partidas_calc"] * 2.5) +
@@ -356,10 +343,6 @@ if not df_bruto.empty:
 
     with tab3:
         # FÓRMULA ELITE: Letalidade Técnica e Precisão
-        # KR (2.0) e Headshots/partida (1.5) mantidos como pilares de precisão.
-        # Dano médio (0.005) mantido com peso agressivo.
-        # Kill distance ajustada: /100 em vez de /200 para dar peso real ao alcance.
-        # Assists (0.4) adicionado: atirador de elite também finaliza jogadas do time.
         f_elite = (
             (df_valid["kr"] * 2.0) +
             (df_valid["headshots"] / df_valid["partidas_calc"] * 1.5) +
