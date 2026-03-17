@@ -22,6 +22,10 @@ players = [
     "Fumiga_BR", "O-CARRASCO"
 ]
 
+# ===============================
+# REQUISIÇÃO COM CONTROLE INTELIGENTE
+# ===============================
+
 def fazer_requisicao(url):
     for tentativa in range(3):
         res = requests.get(url, headers=headers)
@@ -40,6 +44,10 @@ def dividir_lista(lista, tamanho):
     for i in range(0, len(lista), tamanho):
         yield lista[i:i + tamanho]
 
+# ===============================
+# INÍCIO
+# ===============================
+
 inicio_total = time.time()
 print("🚀 Detectando temporada...")
 
@@ -51,6 +59,10 @@ current_season_id = next(
 )
 
 print(f"📅 Temporada atual: {current_season_id}")
+
+# ===============================
+# BUSCAR IDS EM LOTE
+# ===============================
 
 print("🔎 Buscando IDs em lote...")
 player_ids = {}
@@ -65,6 +77,10 @@ for grupo in dividir_lista(players, 10):
             player_ids[p["attributes"]["name"]] = p["id"]
 
 print(f"✅ {len(player_ids)} IDs encontrados.")
+
+# ===============================
+# BUSCA PARALELA DE STATS
+# ===============================
 
 def buscar_stats(player, p_id):
     url = f"{BASE_URL}/players/{p_id}/seasons/{current_season_id}"
@@ -81,7 +97,6 @@ def buscar_stats(player, p_id):
 
     kills = stats.get("kills", 0)
     vitorias = stats.get("wins", 0)
-    top10 = stats.get("top10s", 0)
     assists = stats.get("assists", 0)
     headshots = stats.get("headshotKills", 0)
     revives = stats.get("revives", 0)
@@ -94,7 +109,7 @@ def buscar_stats(player, p_id):
     print(f"⚡ {player} processado")
 
     return (
-        player, partidas, kr, vitorias, top10, kills,
+        player, partidas, kr, vitorias, kills,
         dano_medio, assists, headshots,
         revives, dist_max, datetime.utcnow()
     )
@@ -116,30 +131,30 @@ with ThreadPoolExecutor(max_workers=5) as executor:
 
 print(f"✅ {len(resultados)} jogadores com stats válidas.")
 
+# ===============================
+# BATCH INSERT
+# ===============================
+
 try:
     conn = psycopg2.connect(DATABASE_URL)
     cursor = conn.cursor()
 
     sql = """
-    INSERT INTO ranking_squad 
-    (nick, partidas, kr, vitorias, top10, kills, dano_medio, 
+    INSERT INTO ranking_squad
+    (nick, partidas, kr, vitorias, kills, dano_medio,
      assists, headshots, revives, kill_dist_max, atualizado_em)
-    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
     ON CONFLICT (nick) DO UPDATE SET
-    atualizado_em = CASE 
-        WHEN ranking_squad.partidas <> EXCLUDED.partidas THEN EXCLUDED.atualizado_em 
-        ELSE ranking_squad.atualizado_em 
-    END,
     partidas=EXCLUDED.partidas,
     kr=EXCLUDED.kr,
     vitorias=EXCLUDED.vitorias,
-    top10=EXCLUDED.top10,
     kills=EXCLUDED.kills,
     dano_medio=EXCLUDED.dano_medio,
     assists=EXCLUDED.assists,
     headshots=EXCLUDED.headshots,
     revives=EXCLUDED.revives,
-    kill_dist_max=EXCLUDED.kill_dist_max;
+    kill_dist_max=EXCLUDED.kill_dist_max,
+    atualizado_em=EXCLUDED.atualizado_em
     """
 
     cursor.executemany(sql, resultados)
