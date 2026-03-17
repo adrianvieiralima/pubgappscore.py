@@ -22,10 +22,6 @@ players = [
     "Fumiga_BR", "O-CARRASCO"
 ]
 
-# ===============================
-# REQUISIÇÃO COM CONTROLE INTELIGENTE
-# ===============================
-
 def fazer_requisicao(url):
     for tentativa in range(3):
         res = requests.get(url, headers=headers)
@@ -44,10 +40,6 @@ def dividir_lista(lista, tamanho):
     for i in range(0, len(lista), tamanho):
         yield lista[i:i + tamanho]
 
-# ===============================
-# INÍCIO
-# ===============================
-
 inicio_total = time.time()
 print("🚀 Detectando temporada...")
 
@@ -59,10 +51,6 @@ current_season_id = next(
 )
 
 print(f"📅 Temporada atual: {current_season_id}")
-
-# ===============================
-# BUSCAR IDS EM LOTE
-# ===============================
 
 print("🔎 Buscando IDs em lote...")
 player_ids = {}
@@ -77,10 +65,6 @@ for grupo in dividir_lista(players, 10):
             player_ids[p["attributes"]["name"]] = p["id"]
 
 print(f"✅ {len(player_ids)} IDs encontrados.")
-
-# ===============================
-# BUSCA PARALELA DE STATS
-# ===============================
 
 def buscar_stats(player, p_id):
     url = f"{BASE_URL}/players/{p_id}/seasons/{current_season_id}"
@@ -132,16 +116,10 @@ with ThreadPoolExecutor(max_workers=5) as executor:
 
 print(f"✅ {len(resultados)} jogadores com stats válidas.")
 
-# ===============================
-# BATCH INSERT COM TRAVA DE DATA
-# ===============================
-
 try:
     conn = psycopg2.connect(DATABASE_URL)
     cursor = conn.cursor()
 
-    # Ajuste na lógica ON CONFLICT: 
-    # A data atualizado_em só muda se o número de partidas for diferente.
     sql = """
     INSERT INTO ranking_squad 
     (nick, partidas, kr, vitorias, top10, kills, dano_medio, 
@@ -170,7 +148,7 @@ try:
     cursor.close()
     conn.close()
 
-    print("💾 Banco atualizado com sucesso (Trava de inatividade aplicada)!")
+    print("💾 Banco atualizado com sucesso!")
 
 except Exception as e:
     print(f"💥 Erro no banco: {e}")
