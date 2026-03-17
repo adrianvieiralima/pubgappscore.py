@@ -306,7 +306,7 @@ if not df_bruto.empty:
     with tab1:
         # PRO Player Cálculo: Σ(Win:5.0, Kill:0.5, Top10:0.5, Assist:0.2, Headshot:0.2, Dano:0.002, Rev:0.33) / Partidas
         f_pro = (
-            (df_valid["vitorias"]   / df_valid["partidas_calc"] * 5.0) +
+            (df_valid["vitorias"]    / df_valid["partidas_calc"] * 5.0) +
             (df_valid["kills"]      / df_valid["partidas_calc"] * 0.5) +
             (df_valid["top10"]      / df_valid["partidas_calc"] * 0.5) +
             (df_valid["assists"]    / df_valid["partidas_calc"] * 0.2) +
@@ -325,7 +325,7 @@ if not df_bruto.empty:
     with tab2:
         # TEAM Player Cálculo: Σ(Win:7.0, Top10:2.5, Rev:1.0, Assist:0.5, Headshot:0.1, Dano:0.001) / Partidas
         f_team = (
-            (df_valid["vitorias"]   / df_valid["partidas_calc"] * 7.0) +
+            (df_valid["vitorias"]    / df_valid["partidas_calc"] * 7.0) +
             (df_valid["top10"]      / df_valid["partidas_calc"] * 2.5) +
             (df_valid["revives"]    / df_valid["partidas_calc"] * 1.0) +
             (df_valid["assists"]    / df_valid["partidas_calc"] * 0.5) +
