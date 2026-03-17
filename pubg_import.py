@@ -9,171 +9,81 @@ DATABASE_URL = os.environ.get("DATABASE_URL")
 API_KEY = os.environ.get("PUBG_API_KEY")
 BASE_URL = "https://api.pubg.com/shards/steam"
 
-headers = {
-    "Authorization": f"Bearer {API_KEY}",
-    "Accept": "application/vnd.api+json"
-}
-
-players = [
-    "Adrian-Wan", "MironoteuCool", "FabioEspeto", "Mamutag_Komander",
-    "Robson_Foz", "MEIRAA", "EL-LOCORJ", "SalaminhoKBD",
-    "nelio_ponto_dev", "CARNEIROOO", "Kowalski_PR", "Zacouteguy",
-    "Sidors", "Takato_Matsuki", "cmm01", "Petrala",
-    "Fumiga_BR", "O-CARRASCO"
-]
-
-# ===============================
-# REQUISIÇÃO COM CONTROLE INTELIGENTE
-# ===============================
+headers = {"Authorization": f"Bearer {API_KEY}", "Accept": "application/vnd.api+json"}
+players = ["Adrian-Wan", "MironoteuCool", "FabioEspeto", "Mamutag_Komander", "Robson_Foz", "MEIRAA", "EL-LOCORJ", "SalaminhoKBD", "nelio_ponto_dev", "CARNEIROOO", "Kowalski_PR", "Zacouteguy", "Sidors", "Takato_Matsuki", "cmm01", "Petrala", "Fumiga_BR", "O-CARRASCO"]
 
 def fazer_requisicao(url):
     for tentativa in range(3):
         res = requests.get(url, headers=headers)
-
         if res.status_code == 429:
             retry_after = int(res.headers.get("Retry-After", 10))
-            print(f"⏳ Rate limit. Aguardando {retry_after}s...")
             time.sleep(retry_after)
             continue
-
         return res
-
     return None
 
 def dividir_lista(lista, tamanho):
     for i in range(0, len(lista), tamanho):
         yield lista[i:i + tamanho]
 
-# ===============================
-# INÍCIO
-# ===============================
-
 inicio_total = time.time()
-print("🚀 Detectando temporada...")
-
 res_season = fazer_requisicao(f"{BASE_URL}/seasons")
-current_season_id = next(
-    (s["id"] for s in res_season.json()["data"]
-     if s["attributes"]["isCurrentSeason"]),
-    ""
-)
+current_season_id = next((s["id"] for s in res_season.json()["data"] if s["attributes"]["isCurrentSeason"]), "")
 
-print(f"📅 Temporada atual: {current_season_id}")
-
-# ===============================
-# BUSCAR IDS EM LOTE
-# ===============================
-
-print("🔎 Buscando IDs em lote...")
 player_ids = {}
-
 for grupo in dividir_lista(players, 10):
     nomes = ",".join(grupo)
-    res = fazer_requisicao(
-        f"{BASE_URL}/players?filter[playerNames]={nomes}"
-    )
+    res = fazer_requisicao(f"{BASE_URL}/players?filter[playerNames]={nomes}")
     if res and res.status_code == 200:
         for p in res.json()["data"]:
             player_ids[p["attributes"]["name"]] = p["id"]
 
-print(f"✅ {len(player_ids)} IDs encontrados.")
-
-# ===============================
-# BUSCA PARALELA DE STATS
-# ===============================
-
 def buscar_stats(player, p_id):
     url = f"{BASE_URL}/players/{p_id}/seasons/{current_season_id}"
     res = fazer_requisicao(url)
-
-    if not res or res.status_code != 200:
-        return None
-
+    if not res or res.status_code != 200: return None
     stats = res.json()["data"]["attributes"]["gameModeStats"].get("squad", {})
     partidas = stats.get("roundsPlayed", 0)
-
-    if partidas == 0:
-        return None
-
-    kills = stats.get("kills", 0)
-    vitorias = stats.get("wins", 0)
-    top10 = stats.get("top10s", 0)
-    assists = stats.get("assists", 0)
-    headshots = stats.get("headshotKills", 0)
-    revives = stats.get("revives", 0)
-    dano_total = stats.get("damageDealt", 0)
-    dist_max = stats.get("longestKill", 0.0)
-
-    kr = round(kills / partidas, 2)
-    dano_medio = int(dano_total / partidas)
-
-    print(f"⚡ {player} processado")
-
+    if partidas == 0: return None
+    
     return (
-        player, partidas, kr, vitorias, top10, kills,
-        dano_medio, assists, headshots,
-        revives, dist_max, datetime.utcnow()
+        player, partidas, round(stats.get("kills", 0) / partidas, 2), 
+        stats.get("wins", 0), stats.get("top10s", 0), stats.get("kills", 0),
+        int(stats.get("damageDealt", 0) / partidas), stats.get("assists", 0),
+        stats.get("headshotKills", 0), stats.get("revives", 0),
+        stats.get("longestKill", 0.0), datetime.utcnow()
     )
 
-print("⚡ Buscando estatísticas em paralelo...")
-
 resultados = []
-
 with ThreadPoolExecutor(max_workers=5) as executor:
-    futures = [
-        executor.submit(buscar_stats, player, p_id)
-        for player, p_id in player_ids.items()
-    ]
-
+    futures = [executor.submit(buscar_stats, player, p_id) for player, p_id in player_ids.items()]
     for future in as_completed(futures):
-        resultado = future.result()
-        if resultado:
-            resultados.append(resultado)
-
-print(f"✅ {len(resultados)} jogadores com stats válidas.")
-
-# ===============================
-# BATCH INSERT COM TRAVA DE DATA
-# ===============================
+        res = future.result()
+        if res: resultados.append(res)
 
 try:
     conn = psycopg2.connect(DATABASE_URL)
     cursor = conn.cursor()
-
-    # Ajuste na lógica ON CONFLICT: 
-    # A data atualizado_em só muda se o número de partidas for diferente.
     sql = """
     INSERT INTO ranking_squad 
-    (nick, partidas, kr, vitorias, top10, kills, dano_medio, 
-     assists, headshots, revives, kill_dist_max, atualizado_em)
+    (nick, partidas, kr, vitorias, top10, kills, dano_medio, assists, headshots, revives, kill_dist_max, atualizado_em)
     VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
     ON CONFLICT (nick) DO UPDATE SET
-    atualizado_em = CASE 
-        WHEN ranking_squad.partidas <> EXCLUDED.partidas THEN EXCLUDED.atualizado_em 
-        ELSE ranking_squad.atualizado_em 
-    END,
-    partidas=EXCLUDED.partidas,
-    kr=EXCLUDED.kr,
-    vitorias=EXCLUDED.vitorias,
-    top10=EXCLUDED.top10,
-    kills=EXCLUDED.kills,
-    dano_medio=EXCLUDED.dano_medio,
-    assists=EXCLUDED.assists,
-    headshots=EXCLUDED.headshots,
-    revives=EXCLUDED.revives,
-    kill_dist_max=EXCLUDED.kill_dist_max;
+        atualizado_em = EXCLUDED.atualizado_em,
+        partidas=EXCLUDED.partidas,
+        kr=EXCLUDED.kr,
+        vitorias=EXCLUDED.vitorias,
+        top10=EXCLUDED.top10,
+        kills=EXCLUDED.kills,
+        dano_medio=EXCLUDED.dano_medio,
+        assists=EXCLUDED.assists,
+        headshots=EXCLUDED.headshots,
+        revives=EXCLUDED.revives,
+        kill_dist_max=EXCLUDED.kill_dist_max;
     """
-
     cursor.executemany(sql, resultados)
     conn.commit()
-
-    cursor.close()
     conn.close()
-
-    print("💾 Banco atualizado com sucesso (Trava de inatividade aplicada)!")
-
+    print("💾 Banco atualizado!")
 except Exception as e:
-    print(f"💥 Erro no banco: {e}")
-
-fim_total = time.time()
-print(f"⏱ Tempo total: {round(fim_total - inicio_total, 2)} segundos")
+    print(f"💥 Erro: {e}")
