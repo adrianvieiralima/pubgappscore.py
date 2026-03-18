@@ -62,10 +62,9 @@ def processar_player(conn, player_name, player_id):
 
     for m in matches:
         match_id = m["id"]
-        
-        # Verificamos se já foi processada
+
         cur.execute("SELECT 1 FROM matches_processadas WHERE match_id = %s AND player_name = %s", (match_id, player_name))
-        if cur.fetchone(): continue 
+        if cur.fetchone(): continue
 
         match_data = get(f"https://api.pubg.com/shards/{SHARD}/matches/{match_id}")
         if not match_data: continue
@@ -75,17 +74,15 @@ def processar_player(conn, player_name, player_id):
 
         participants = [x for x in match_data["included"] if x["type"] == "participant"]
         humanos = sum(1 for p in participants if p["attributes"]["stats"].get("playerId", "").startswith("account."))
-        
+
         if attr.get("matchType") == "casual" or humanos <= 12:
             p_stats = next((x["attributes"]["stats"] for x in participants if x["attributes"]["stats"].get("playerId") == player_id), None)
-            
+
             if p_stats:
                 kills = p_stats.get("kills", 0)
                 dano = p_stats.get("damageDealt", 0)
-                # Cálculo do KR e Score
                 score_penalidade = (kills * 10) + (dano * 0.1)
 
-                # UPDATE COMPLETO COM CÁLCULO DE KR CORRIGIDO
                 cur.execute("""
                     UPDATE ranking_bot SET
                         partidas = partidas + 1,
@@ -97,5 +94,46 @@ def processar_player(conn, player_name, player_id):
                         headshots = headshots + %s,
                         revives = revives + %s,
                         kill_dist_max = GREATEST(kill_dist_max, %s),
-                        -- Forçamos a conversão para FLOAT para não arredondar para zero
                         kr = ABS(CAST(kills - %s AS FLOAT) / NULLIF(partidas + 1, 0)),
+                        atualizado_em = NOW()
+                    WHERE nick = %s
+                """, (
+                    1 if p_stats.get("winPlace") == 1 else 0,
+                    kills, score_penalidade, dano,
+                    p_stats.get("assists", 0),
+                    p_stats.get("headshotKills", 0),
+                    p_stats.get("revives", 0),
+                    p_stats.get("longestKill", 0),
+                    kills,
+                    player_name
+                ))
+                penalidades += 1
+
+        cur.execute("INSERT INTO matches_processadas (match_id, player_name) VALUES (%s, %s) ON CONFLICT DO NOTHING", (match_id, player_name))
+        conn.commit()
+        time.sleep(0.5)
+    return penalidades
+
+if __name__ == "__main__":
+    if not DATABASE_URL:
+        print("❌ DATABASE_URL não configurado.")
+    else:
+        conn = psycopg2.connect(DATABASE_URL)
+
+        # --- PASSO IMPORTANTE: LIMPANDO O HISTÓRICO PARA REPROCESSAR ---
+        #print("🧹 Limpando dados antigos para atualizar colunas...")
+        #with conn.cursor() as c:
+        #    c.execute("DELETE FROM matches_processadas;")
+        #    c.execute("""
+        #        UPDATE ranking_bot SET 
+        #        partidas=0, vitorias=0, kills=0, score=0, 
+        #        dano_medio=0, assists=0, headshots=0, 
+        #        revives=0, kill_dist_max=0, kr=0;
+        #    """)
+        #conn.commit()
+
+        for name, pid in PLAYERS.items():
+            processar_player(conn, name, pid)
+
+        conn.close()
+        print("\n✅ Concluído! Verifique seu banco agora.")
