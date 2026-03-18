@@ -63,7 +63,7 @@ def processar_player(conn, player_name, player_id):
     penalidades = 0
     ignoradas_ja_processada = 0
     ignoradas_modo_errado = 0
-    ignoradas_nao_casual = 0
+    ignoradas_nao_airoyale = 0
 
     for m in matches:
         match_id = m["id"]
@@ -74,6 +74,7 @@ def processar_player(conn, player_name, player_id):
             ignoradas_ja_processada += 1
             continue
 
+        # Busca apenas o resumo da partida para checar o matchType antes de buscar detalhes completos
         match_data = get(f"https://api.pubg.com/shards/{SHARD}/matches/{match_id}")
         if not match_data: continue
 
@@ -87,59 +88,57 @@ def processar_player(conn, player_name, player_id):
             time.sleep(0.5)
             continue
 
+        # Filtra direto pelo matchType=airoyale, sem precisar contar humanos
+        if attr.get("matchType") != "airoyale":
+            print(f"   ❌ {match_id} → não é airoyale (matchType={attr.get('matchType')}), ignorando")
+            ignoradas_nao_airoyale += 1
+            # Não marca como processada — reavalia nas próximas execuções
+            time.sleep(0.5)
+            continue
+
+        print(f"   ✅ {match_id} → airoyale confirmado, processando")
         participants = [x for x in match_data["included"] if x["type"] == "participant"]
-        humanos = sum(1 for p in participants if p["attributes"]["stats"].get("playerId", "").startswith("account."))
+        p_stats = next((x["attributes"]["stats"] for x in participants if x["attributes"]["stats"].get("playerId") == player_id), None)
 
-        if attr.get("matchType") == "casual" or humanos <= 12:
-            print(f"   ✅ {match_id} → casual/bots (matchType={attr.get('matchType')}, humanos={humanos}), processando")
-            p_stats = next((x["attributes"]["stats"] for x in participants if x["attributes"]["stats"].get("playerId") == player_id), None)
+        if p_stats:
+            kills = p_stats.get("kills", 0)
+            dano = p_stats.get("damageDealt", 0)
+            score_penalidade = (kills * 10) + (dano * 0.1)
 
-            if p_stats:
-                kills = p_stats.get("kills", 0)
-                dano = p_stats.get("damageDealt", 0)
-                score_penalidade = (kills * 10) + (dano * 0.1)
+            cur.execute("""
+                UPDATE ranking_bot SET
+                    partidas = partidas + 1,
+                    vitorias = vitorias + %s,
+                    kills = kills - %s,
+                    score = score - %s,
+                    dano_medio = dano_medio + %s,
+                    assists = assists + %s,
+                    headshots = headshots + %s,
+                    revives = revives + %s,
+                    kill_dist_max = GREATEST(kill_dist_max, %s),
+                    kr = ABS(CAST(kills - %s AS FLOAT) / NULLIF(partidas + 1, 0)),
+                    atualizado_em = NOW()
+                WHERE nick = %s
+            """, (
+                1 if p_stats.get("winPlace") == 1 else 0,
+                kills, score_penalidade, dano,
+                p_stats.get("assists", 0),
+                p_stats.get("headshotKills", 0),
+                p_stats.get("revives", 0),
+                p_stats.get("longestKill", 0),
+                kills,
+                player_name
+            ))
+            penalidades += 1
 
-                cur.execute("""
-                    UPDATE ranking_bot SET
-                        partidas = partidas + 1,
-                        vitorias = vitorias + %s,
-                        kills = kills - %s,
-                        score = score - %s,
-                        dano_medio = dano_medio + %s,
-                        assists = assists + %s,
-                        headshots = headshots + %s,
-                        revives = revives + %s,
-                        kill_dist_max = GREATEST(kill_dist_max, %s),
-                        kr = ABS(CAST(kills - %s AS FLOAT) / NULLIF(partidas + 1, 0)),
-                        atualizado_em = NOW()
-                    WHERE nick = %s
-                """, (
-                    1 if p_stats.get("winPlace") == 1 else 0,
-                    kills, score_penalidade, dano,
-                    p_stats.get("assists", 0),
-                    p_stats.get("headshotKills", 0),
-                    p_stats.get("revives", 0),
-                    p_stats.get("longestKill", 0),
-                    kills,
-                    player_name
-                ))
-                penalidades += 1
-
-            # Só marca como processada após passar pelo filtro casual
-            cur.execute("INSERT INTO matches_processadas (match_id, player_name) VALUES (%s, %s) ON CONFLICT DO NOTHING", (match_id, player_name))
-            conn.commit()
-
-        else:
-            print(f"   ❌ {match_id} → não casual/sem bots (matchType={attr.get('matchType')}, humanos={humanos}), ignorando")
-            ignoradas_nao_casual += 1
-            # Não marca como processada — será reavaliada nas próximas execuções
-
+        cur.execute("INSERT INTO matches_processadas (match_id, player_name) VALUES (%s, %s) ON CONFLICT DO NOTHING", (match_id, player_name))
+        conn.commit()
         time.sleep(0.5)
 
     print(f"📊 Resumo {player_name}: {penalidades} penalidade(s) aplicada(s) | "
           f"{ignoradas_ja_processada} já processada(s) | "
           f"{ignoradas_modo_errado} modo errado | "
-          f"{ignoradas_nao_casual} não casual/sem bots")
+          f"{ignoradas_nao_airoyale} não airoyale")
 
     return penalidades
 
