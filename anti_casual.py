@@ -31,8 +31,25 @@ PLAYERS = {
 HEADERS = {"Authorization": f"Bearer {API_KEY}", "Accept": "application/vnd.api+json"}
 
 def get(url):
-    r = requests.get(url, headers=HEADERS)
-    return r.json() if r.status_code == 200 else None
+    for attempt in range(3):
+        r = requests.get(url, headers=HEADERS)
+        if r.status_code == 200:
+            return r.json()
+        elif r.status_code == 429:
+            wait = int(r.headers.get("Retry-After", 10))
+            print(f"⏳ Rate limit atingido, aguardando {wait}s... (tentativa {attempt + 1}/3)")
+            time.sleep(wait)
+        elif r.status_code == 401:
+            print(f"❌ API Key inválida ou expirada.")
+            return None
+        elif r.status_code == 404:
+            print(f"⚠️ Recurso não encontrado: {url}")
+            return None
+        else:
+            print(f"❌ Erro {r.status_code} em {url} (tentativa {attempt + 1}/3)")
+            time.sleep(2)
+    print(f"❌ Falhou após 3 tentativas: {url}")
+    return None
 
 def processar_player(conn, player_name, player_id):
     print(f"🔎 Processando: {player_name}")
@@ -82,45 +99,3 @@ def processar_player(conn, player_name, player_id):
                         kill_dist_max = GREATEST(kill_dist_max, %s),
                         -- Forçamos a conversão para FLOAT para não arredondar para zero
                         kr = ABS(CAST(kills - %s AS FLOAT) / NULLIF(partidas + 1, 0)),
-                        atualizado_em = NOW()
-                    WHERE nick = %s
-                """, (
-                    1 if p_stats.get("winPlace") == 1 else 0,
-                    kills, score_penalidade, dano,
-                    p_stats.get("assists", 0),
-                    p_stats.get("headshotKills", 0),
-                    p_stats.get("revives", 0),
-                    p_stats.get("longestKill", 0),
-                    kills, # valor usado para o cálculo do KR
-                    player_name
-                ))
-                penalidades += 1
-
-        cur.execute("INSERT INTO matches_processadas (match_id, player_name) VALUES (%s, %s) ON CONFLICT DO NOTHING", (match_id, player_name))
-        conn.commit()
-        time.sleep(0.5)
-    return penalidades
-
-if __name__ == "__main__":
-    if not DATABASE_URL:
-        print("❌ DATABASE_URL não configurado.")
-    else:
-        conn = psycopg2.connect(DATABASE_URL)
-        
-        # --- PASSO IMPORTANTE: LIMPANDO O HISTÓRICO PARA REPROCESSAR ---
-        #print("🧹 Limpando dados antigos para atualizar colunas...")
-        #with conn.cursor() as c:
-        #    c.execute("DELETE FROM matches_processadas;")
-        #    c.execute("""
-        #        UPDATE ranking_bot SET 
-        #        partidas=0, vitorias=0, kills=0, score=0, 
-        #        dano_medio=0, assists=0, headshots=0, 
-        #        revives=0, kill_dist_max=0, kr=0;
-        #    """)
-        #conn.commit()
-
-        for name, pid in PLAYERS.items():
-            processar_player(conn, name, pid)
-        
-        conn.close()
-        print("\n✅ Concluído! Verifique seu banco agora.")
