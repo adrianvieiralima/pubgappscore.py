@@ -261,13 +261,13 @@ if not df_bruto.empty:
 
     with tab1:
         f_pro = (
-            (df_valid["vitorias"] * 5) +
-            (df_valid["kills"] * 0.5) +
-            (df_valid["assists"] * 0.2) +
-            (df_valid["headshots"] * 0.2) +
-            (df_valid["revives"] * 0.33) +
+            (df_valid["vitorias"] / df_valid["partidas_calc"] * 5) +
+            (df_valid["kills"] / df_valid["partidas_calc"] * 0.5) +
+            (df_valid["assists"] / df_valid["partidas_calc"] * 0.2) +
+            (df_valid["headshots"] / df_valid["partidas_calc"] * 0.2) +
+            (df_valid["revives"] / df_valid["partidas_calc"] * 0.33) +
             (df_valid["dano_medio"] * 0.001) +
-            (df_valid["top10"] * 0.5) +
+            (df_valid["top10"] / df_valid["partidas_calc"] * 0.5) +
             (df_valid["kr"] * 10) +
             (df_valid["kill_dist_max"] * 0.01)
         )
@@ -275,48 +275,48 @@ if not df_bruto.empty:
             df_valid.copy(),
             "Score_Pro",
             f_pro,
-            "Fórmula PRO: Equilíbrio entre todas as estatísticas. Valoriza vitórias, kills, precisão, suporte e consistência.",
-            "(Vitórias × 5) + (Kills × 0.5) + (Assists × 0.2) + (Headshots × 0.2) + (Revives × 0.33) + (Dano Médio × 0.001) + (Top10 × 0.5) + (KR × 10) + (Kill Dist Máx × 0.01)"
+            "Fórmula PRO: Equilíbrio entre todas as estatísticas por partida. Valoriza consistência em vitórias, kills, precisão, suporte e dano.",
+            "(Win Rate × 5) + (Kills/P × 0.5) + (Assists/P × 0.2) + (Headshots/P × 0.2) + (Revives/P × 0.33) + (Dano Médio × 0.001) + (Top10/P × 0.5) + (KR × 10) + (Kill Dist Máx × 0.01)"
         )
 
     with tab2:
         f_team = (
-            (df_valid["vitorias"] * 8) +
-            (df_valid["kills"] * 0.3) +
+            (df_valid["vitorias"] / df_valid["partidas_calc"] * 8) +
+            (df_valid["kills"] / df_valid["partidas_calc"] * 0.3) +
             (df_valid["kr"] * 5) +
-            (df_valid["assists"] * 1.5) +
-            (df_valid["headshots"] * 0.1) +
-            (df_valid["revives"] * 3) +
+            (df_valid["assists"] / df_valid["partidas_calc"] * 1.5) +
+            (df_valid["headshots"] / df_valid["partidas_calc"] * 0.1) +
+            (df_valid["revives"] / df_valid["partidas_calc"] * 3) +
             (df_valid["dano_medio"] * 0.002) +
-            (df_valid["top10"] * 1) +
+            (df_valid["top10"] / df_valid["partidas_calc"] * 1) +
             (df_valid["kill_dist_max"] * 0.005)
         )
         renderizar_ranking(
             df_valid.copy(),
             "Score_Team",
             f_team,
-            "Fórmula TEAM: Foco no jogo coletivo. Valoriza vitórias, revives, assists e top10.",
-            "(Vitórias × 8) + (Kills × 0.3) + (KR × 5) + (Assists × 1.5) + (Headshots × 0.1) + (Revives × 3) + (Dano Médio × 0.002) + (Top10 × 1) + (Kill Dist Máx × 0.005)"
+            "Fórmula TEAM: Foco no jogo coletivo por partida. Valoriza vitórias, revives, assists e top10.",
+            "(Win Rate × 8) + (Kills/P × 0.3) + (KR × 5) + (Assists/P × 1.5) + (Headshots/P × 0.1) + (Revives/P × 3) + (Dano Médio × 0.002) + (Top10/P × 1) + (Kill Dist Máx × 0.005)"
         )
 
     with tab3:
         f_elite = (
             (df_valid["kr"] * 20) +
-            (df_valid["kills"] * 1) +
-            (df_valid["vitorias"] * 2) +
-            (df_valid["assists"] * 0.1) +
-            (df_valid["headshots"] * 1.5) +
-            (df_valid["revives"] * 0.5) +
+            (df_valid["kills"] / df_valid["partidas_calc"] * 1) +
+            (df_valid["vitorias"] / df_valid["partidas_calc"] * 2) +
+            (df_valid["assists"] / df_valid["partidas_calc"] * 0.1) +
+            (df_valid["headshots"] / df_valid["partidas_calc"] * 1.5) +
+            (df_valid["revives"] / df_valid["partidas_calc"] * 0.5) +
             (df_valid["dano_medio"] * 0.005) +
-            (df_valid["top10"] * 0.3) +
+            (df_valid["top10"] / df_valid["partidas_calc"] * 0.3) +
             (df_valid["kill_dist_max"] * 0.05)
         )
         renderizar_ranking(
             df_valid.copy(),
             "Score_Elite",
             f_elite,
-            "Fórmula ELITE: Prioriza KR, precisão de headshots, kills e alcance máximo.",
-            "(KR × 20) + (Kills × 1) + (Vitórias × 2) + (Assists × 0.1) + (Headshots × 1.5) + (Revives × 0.5) + (Dano Médio × 0.005) + (Top10 × 0.3) + (Kill Dist Máx × 0.05)"
+            "Fórmula ELITE: Prioriza KR, precisão de headshots, kills por partida e alcance máximo.",
+            "(KR × 20) + (Kills/P × 1) + (Win Rate × 2) + (Assists/P × 0.1) + (Headshots/P × 1.5) + (Revives/P × 0.5) + (Dano Médio × 0.005) + (Top10/P × 0.3) + (Kill Dist Máx × 0.05)"
         )
 
     with tab4:
