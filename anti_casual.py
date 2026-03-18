@@ -159,7 +159,7 @@ async def main():
         c.execute("""
             UPDATE ranking_bot SET 
             partidas=0, vitorias=0, kills=0, score=0, 
-            dano_meio=0, assists=0, headshots=0, 
+            dano_medio=0, assists=0, headshots=0, 
             revives=0, kill_dist_max=0, kr=0;
         """)
     conn.commit()
