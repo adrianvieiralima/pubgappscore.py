@@ -72,6 +72,10 @@ def buscar_stats(player, p_id):
         return None
 
     data = res.json()["data"]
+
+    # DEBUG — ver todos os campos de attributes
+    print(f"🔍 {player} attributes keys: {list(data['attributes'].keys())}")
+
     stats = data["attributes"]["gameModeStats"].get("squad", {})
     partidas = stats.get("roundsPlayed", 0)
 
@@ -90,7 +94,6 @@ def buscar_stats(player, p_id):
     kr = round(kills / partidas, 2)
     dano_medio = int(dano_total / partidas)
 
-    # Pega a data da última atualização do jogador direto do endpoint de seasons
     ultima_partida = None
     try:
         updated_at_raw = data["attributes"].get("updatedAt", None)
