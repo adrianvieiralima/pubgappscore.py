@@ -64,24 +64,6 @@ for grupo in dividir_lista(players, 10):
 
 print(f"✅ {len(player_ids)} IDs encontrados.")
 
-def buscar_ultima_partida(p_id):
-    res = fazer_requisicao(f"{BASE_URL}/players/{p_id}")
-    if not res or res.status_code != 200:
-        return None
-    try:
-        matches = res.json()["data"]["relationships"]["matches"]["data"]
-        if not matches:
-            return None
-        # Busca a data da partida mais recente
-        match_id = matches[0]["id"]
-        res_match = fazer_requisicao(f"{BASE_URL}/matches/{match_id}")
-        if not res_match or res_match.status_code != 200:
-            return None
-        created_at = res_match.json()["data"]["attributes"]["createdAt"]
-        return datetime.strptime(created_at, "%Y-%m-%dT%H:%M:%SZ")
-    except Exception:
-        return None
-
 def buscar_stats(player, p_id):
     url = f"{BASE_URL}/players/{p_id}/seasons/{current_season_id}"
     res = fazer_requisicao(url)
@@ -89,7 +71,8 @@ def buscar_stats(player, p_id):
     if not res or res.status_code != 200:
         return None
 
-    stats = res.json()["data"]["attributes"]["gameModeStats"].get("squad", {})
+    data = res.json()["data"]
+    stats = data["attributes"]["gameModeStats"].get("squad", {})
     partidas = stats.get("roundsPlayed", 0)
 
     if partidas == 0:
@@ -107,9 +90,16 @@ def buscar_stats(player, p_id):
     kr = round(kills / partidas, 2)
     dano_medio = int(dano_total / partidas)
 
-    ultima_partida = buscar_ultima_partida(p_id)
+    # Pega a data da última atualização do jogador direto do endpoint de seasons
+    ultima_partida = None
+    try:
+        updated_at_raw = data["attributes"].get("updatedAt", None)
+        if updated_at_raw:
+            ultima_partida = datetime.strptime(updated_at_raw, "%Y-%m-%dT%H:%M:%SZ")
+    except Exception:
+        ultima_partida = None
 
-    print(f"⚡ {player} processado | última partida: {ultima_partida}")
+    print(f"⚡ {player} processado | última atividade: {ultima_partida}")
 
     return (
         player, partidas, kr, vitorias, kills,
