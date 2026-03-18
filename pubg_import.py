@@ -50,8 +50,13 @@ current_season_id = next(
 
 print(f"📅 Temporada atual: {current_season_id}")
 
-print("🔎 Buscando IDs em lote...")
+# ===============================
+# BUSCAR IDs E MATCH MAIS RECENTE EM LOTE
+# ===============================
+
+print("🔎 Buscando IDs e última partida em lote...")
 player_ids = {}
+player_last_match = {}  # nick -> match_id mais recente
 
 for grupo in dividir_lista(players, 10):
     nomes = ",".join(grupo)
@@ -60,9 +65,44 @@ for grupo in dividir_lista(players, 10):
     )
     if res and res.status_code == 200:
         for p in res.json()["data"]:
-            player_ids[p["attributes"]["name"]] = p["id"]
+            nick = p["attributes"]["name"]
+            player_ids[nick] = p["id"]
+            matches = p["relationships"]["matches"]["data"]
+            if matches:
+                player_last_match[nick] = matches[0]["id"]
 
 print(f"✅ {len(player_ids)} IDs encontrados.")
+
+# ===============================
+# BUSCAR DATA DA ÚLTIMA PARTIDA
+# ===============================
+
+print("📅 Buscando data da última partida...")
+player_updated_at = {}
+
+def buscar_data_partida(nick, match_id):
+    res = fazer_requisicao(f"{BASE_URL}/matches/{match_id}")
+    if not res or res.status_code != 200:
+        return nick, None
+    try:
+        created_at = res.json()["data"]["attributes"]["createdAt"]
+        return nick, datetime.strptime(created_at, "%Y-%m-%dT%H:%M:%SZ")
+    except Exception:
+        return nick, None
+
+with ThreadPoolExecutor(max_workers=5) as executor:
+    futures = [
+        executor.submit(buscar_data_partida, nick, match_id)
+        for nick, match_id in player_last_match.items()
+    ]
+    for future in as_completed(futures):
+        nick, data = future.result()
+        player_updated_at[nick] = data
+        print(f"📅 {nick} | última partida: {data}")
+
+# ===============================
+# BUSCA PARALELA DE STATS
+# ===============================
 
 def buscar_stats(player, p_id):
     url = f"{BASE_URL}/players/{p_id}/seasons/{current_season_id}"
@@ -71,12 +111,7 @@ def buscar_stats(player, p_id):
     if not res or res.status_code != 200:
         return None
 
-    data = res.json()["data"]
-
-    # DEBUG — ver todos os campos de attributes
-    print(f"🔍 {player} attributes keys: {list(data['attributes'].keys())}")
-
-    stats = data["attributes"]["gameModeStats"].get("squad", {})
+    stats = res.json()["data"]["attributes"]["gameModeStats"].get("squad", {})
     partidas = stats.get("roundsPlayed", 0)
 
     if partidas == 0:
@@ -94,15 +129,9 @@ def buscar_stats(player, p_id):
     kr = round(kills / partidas, 2)
     dano_medio = int(dano_total / partidas)
 
-    ultima_partida = None
-    try:
-        updated_at_raw = data["attributes"].get("updatedAt", None)
-        if updated_at_raw:
-            ultima_partida = datetime.strptime(updated_at_raw, "%Y-%m-%dT%H:%M:%SZ")
-    except Exception:
-        ultima_partida = None
+    ultima_partida = player_updated_at.get(player, None)
 
-    print(f"⚡ {player} processado | última atividade: {ultima_partida}")
+    print(f"⚡ {player} processado")
 
     return (
         player, partidas, kr, vitorias, kills,
