@@ -1,3 +1,4 @@
+# pubg_import.py
 import os
 import time
 import requests
@@ -22,31 +23,20 @@ players = [
     "Fumiga_BR", "O-CARRASCO"
 ]
 
-# ===============================
-# REQUISIÇÃO COM CONTROLE INTELIGENTE
-# ===============================
-
 def fazer_requisicao(url):
     for tentativa in range(3):
         res = requests.get(url, headers=headers)
-
         if res.status_code == 429:
             retry_after = int(res.headers.get("Retry-After", 10))
             print(f"⏳ Rate limit. Aguardando {retry_after}s...")
             time.sleep(retry_after)
             continue
-
         return res
-
     return None
 
 def dividir_lista(lista, tamanho):
     for i in range(0, len(lista), tamanho):
         yield lista[i:i + tamanho]
-
-# ===============================
-# INÍCIO
-# ===============================
 
 inicio_total = time.time()
 print("🚀 Detectando temporada...")
@@ -59,10 +49,6 @@ current_season_id = next(
 )
 
 print(f"📅 Temporada atual: {current_season_id}")
-
-# ===============================
-# BUSCAR IDS EM LOTE
-# ===============================
 
 print("🔎 Buscando IDs em lote...")
 player_ids = {}
@@ -77,10 +63,6 @@ for grupo in dividir_lista(players, 10):
             player_ids[p["attributes"]["name"]] = p["id"]
 
 print(f"✅ {len(player_ids)} IDs encontrados.")
-
-# ===============================
-# BUSCA PARALELA DE STATS
-# ===============================
 
 def buscar_stats(player, p_id):
     url = f"{BASE_URL}/players/{p_id}/seasons/{current_season_id}"
@@ -102,6 +84,7 @@ def buscar_stats(player, p_id):
     revives = stats.get("revives", 0)
     dano_total = stats.get("damageDealt", 0)
     dist_max = stats.get("longestKill", 0.0)
+    top10 = stats.get("top10s", 0)
 
     kr = round(kills / partidas, 2)
     dano_medio = int(dano_total / partidas)
@@ -111,7 +94,7 @@ def buscar_stats(player, p_id):
     return (
         player, partidas, kr, vitorias, kills,
         dano_medio, assists, headshots,
-        revives, dist_max, datetime.utcnow()
+        revives, dist_max, top10, datetime.utcnow()
     )
 
 print("⚡ Buscando estatísticas em paralelo...")
@@ -131,10 +114,6 @@ with ThreadPoolExecutor(max_workers=5) as executor:
 
 print(f"✅ {len(resultados)} jogadores com stats válidas.")
 
-# ===============================
-# BATCH INSERT
-# ===============================
-
 try:
     conn = psycopg2.connect(DATABASE_URL)
     cursor = conn.cursor()
@@ -142,8 +121,8 @@ try:
     sql = """
     INSERT INTO ranking_squad
     (nick, partidas, kr, vitorias, kills, dano_medio,
-     assists, headshots, revives, kill_dist_max, atualizado_em)
-    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+     assists, headshots, revives, kill_dist_max, top10, atualizado_em)
+    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
     ON CONFLICT (nick) DO UPDATE SET
     partidas=EXCLUDED.partidas,
     kr=EXCLUDED.kr,
@@ -154,6 +133,7 @@ try:
     headshots=EXCLUDED.headshots,
     revives=EXCLUDED.revives,
     kill_dist_max=EXCLUDED.kill_dist_max,
+    top10=EXCLUDED.top10,
     atualizado_em=EXCLUDED.atualizado_em
     """
 
