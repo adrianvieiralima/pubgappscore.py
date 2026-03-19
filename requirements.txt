@@ -12,3 +12,4 @@ python-dotenv
 pytz
 streamlit-autorefresh
 aiohttp
+plotly
