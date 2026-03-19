@@ -3,6 +3,7 @@ import streamlit as st
 import pandas as pd
 import subprocess
 import sys
+import plotly.express as px
 from datetime import datetime
 
 if "ranking_atualizado" not in st.session_state:
@@ -113,6 +114,28 @@ def processar_ranking_completo(df_ranking, col_score):
         cols_base.append(col_score)
 
     return df_ranking[cols_base]
+
+def grafico_horizontal(df, col, titulo, cor):
+    df_sorted = df.sort_values(col, ascending=True).copy()
+    fig = px.bar(
+        df_sorted,
+        x=col,
+        y="nick",
+        orientation="h",
+        title=titulo,
+        color_discrete_sequence=[cor]
+    )
+    fig.update_layout(
+        paper_bgcolor="rgba(0,0,0,0)",
+        plot_bgcolor="rgba(0,0,0,0)",
+        font_color="white",
+        title_font_color="white",
+        xaxis=dict(showgrid=True, gridcolor="#2a2a2a"),
+        yaxis=dict(showgrid=False),
+        margin=dict(l=10, r=10, t=40, b=10),
+        height=500
+    )
+    st.plotly_chart(fig, use_container_width=True)
 
 st.markdown(
     "<h1 style='text-align:left;'>🏆 PUBG Ranking Squad - Season 40</h1>",
@@ -371,31 +394,15 @@ if not df_bruto.empty:
             for col in ["partidas", "vitorias", "kills", "assists", "headshots", "revives", "dano_medio", "top10"]:
                 df_semana_atual[col] = df_semana_atual.apply(lambda r: calcular_diff(r, col), axis=1)
         else:
-            st.caption("ℹ️ Primeira semana registrada — exibindo valores absolutos.")
+            st.caption("📊 Estatísticas da Semana")
 
         col_g1, col_g2 = st.columns(2)
         with col_g1:
-            st.write("🔥 **Dano Médio**")
-            st.bar_chart(
-                df_semana_atual.sort_values("dano_medio", ascending=True).set_index("nick")["dano_medio"],
-                color="#ff4b4b", horizontal=True
-            )
-            st.write("💀 **Headshots**")
-            st.bar_chart(
-                df_semana_atual.sort_values("headshots", ascending=True).set_index("nick")["headshots"],
-                color="#0078ff", horizontal=True
-            )
+            grafico_horizontal(df_semana_atual, "dano_medio", "🔥 Dano Médio", "#ff4b4b")
+            grafico_horizontal(df_semana_atual, "headshots", "💀 Headshots", "#0078ff")
         with col_g2:
-            st.write("🎯 **Kills**")
-            st.bar_chart(
-                df_semana_atual.sort_values("kills", ascending=True).set_index("nick")["kills"],
-                color="#f63366", horizontal=True
-            )
-            st.write("🏆 **Vitórias**")
-            st.bar_chart(
-                df_semana_atual.sort_values("vitorias", ascending=True).set_index("nick")["vitorias"],
-                color="#00cc66", horizontal=True
-            )
+            grafico_horizontal(df_semana_atual, "kills", "🎯 Kills", "#f63366")
+            grafico_horizontal(df_semana_atual, "vitorias", "🏆 Vitórias", "#00cc66")
 
     else:
         st.info("Nenhum dado semanal disponível ainda. Aguarde o próximo sync.")
