@@ -356,7 +356,6 @@ if not df_bruto.empty:
 
         df_semana_atual = df_semanal[df_semanal["semana"] == semana_selecionada].copy()
 
-        # Busca semana anterior para calcular diferença
         idx_semana = list(semanas_disponiveis).index(semana_selecionada)
         if idx_semana + 1 < len(semanas_disponiveis):
             semana_anterior = semanas_disponiveis[idx_semana + 1]
@@ -378,23 +377,23 @@ if not df_bruto.empty:
         with col_g1:
             st.write("🔥 **Dano Médio**")
             st.bar_chart(
-                df_semana_atual.sort_values("dano_medio", ascending=False).set_index("nick")["dano_medio"],
+                df_semana_atual.sort_values("dano_medio", ascending=True).set_index("nick")["dano_medio"],
                 color="#ff4b4b", horizontal=True
             )
             st.write("💀 **Headshots**")
             st.bar_chart(
-                df_semana_atual.sort_values("headshots", ascending=False).set_index("nick")["headshots"],
+                df_semana_atual.sort_values("headshots", ascending=True).set_index("nick")["headshots"],
                 color="#0078ff", horizontal=True
             )
         with col_g2:
             st.write("🎯 **Kills**")
             st.bar_chart(
-                df_semana_atual.sort_values("kills", ascending=False).set_index("nick")["kills"],
+                df_semana_atual.sort_values("kills", ascending=True).set_index("nick")["kills"],
                 color="#f63366", horizontal=True
             )
             st.write("🏆 **Vitórias**")
             st.bar_chart(
-                df_semana_atual.sort_values("vitorias", ascending=False).set_index("nick")["vitorias"],
+                df_semana_atual.sort_values("vitorias", ascending=True).set_index("nick")["vitorias"],
                 color="#00cc66", horizontal=True
             )
 
