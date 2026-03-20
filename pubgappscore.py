@@ -243,7 +243,7 @@ if not df_bruto.empty:
                 "headshots": lambda x: f"- {int(abs(x))}",
                 "revives": lambda x: f"- {int(abs(x))}",
                 "dano_medio": lambda x: f"- {int(abs(x))}",
-                "top10": lambda x: f" {int(abs(x))}",
+                "top10": lambda x: f"- {int(abs(x))}",
                 col_score: "{:.2f}"
             }
         else:
