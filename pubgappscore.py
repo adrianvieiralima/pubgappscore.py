@@ -384,9 +384,10 @@ if not df_bruto.empty:
 
             def formatar_semana(s):
                 fim = pd.Timestamp(s) + pd.Timedelta(days=6)
-                num_semana = (fim.day - 1) // 7 + 1
+                primeiro_dia_mes = fim.replace(day=1)
+                num_semana = (fim.isocalendar()[1] - primeiro_dia_mes.isocalendar()[1]) + 1
                 mes = f"{MESES_PT[fim.month]} {fim.year}"
-                return f"Semana #{num_semana} · {mes}"
+                return f"Semana #{num_semana} - {mes.capitalize()}"
 
             semanas_labels = {s: formatar_semana(s) for s in semanas_disponiveis}
 
