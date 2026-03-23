@@ -383,9 +383,9 @@ if not df_bruto.empty:
             semanas_disponiveis = sorted(df_semanal["semana"].unique(), reverse=True)
 
             def formatar_semana(s):
-                fim = pd.Timestamp(s) + pd.Timedelta(days=6)
-                primeiro_dia_mes = fim.replace(day=1)
-                num_semana = (fim.isocalendar()[1] - primeiro_dia_mes.isocalendar()[1]) + 1
+                inicio = pd.Timestamp(s)
+                fim = inicio + pd.Timedelta(days=6)
+                num_semana = ((inicio.day - 1) // 7) + 1
                 mes = f"{MESES_PT[fim.month]} {fim.year}"
                 return f"Semana #{num_semana} - {mes.capitalize()}"
 
