@@ -138,7 +138,7 @@ def grafico_horizontal(df, col, titulo, cor):
         xaxis=dict(showgrid=True, gridcolor="#2a2a2a"),
         yaxis=dict(showgrid=False),
         margin=dict(l=10, r=10, t=40, b=10),
-        height=500
+        height=max(300, len(df_sorted) * 28)
     )
     st.plotly_chart(fig, use_container_width=True)
 
