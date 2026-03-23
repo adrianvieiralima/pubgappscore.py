@@ -5,6 +5,9 @@ import subprocess
 import sys
 import plotly.express as px
 from datetime import datetime
+import locale
+
+locale.setlocale(locale.LC_TIME, "pt_BR.UTF-8")
 
 if "ranking_atualizado" not in st.session_state:
     try:
@@ -376,7 +379,14 @@ if not df_bruto.empty:
         if not df_semanal.empty:
             df_semanal["semana"] = pd.to_datetime(df_semanal["semana"])
             semanas_disponiveis = sorted(df_semanal["semana"].unique(), reverse=True)
-            semanas_labels = {s: f"Semana de {pd.Timestamp(s).strftime('%d/%m/%Y')}" for s in semanas_disponiveis}
+
+            def formatar_semana(s):
+                fim = pd.Timestamp(s) + pd.Timedelta(days=6)
+                num_semana = (fim.day - 1) // 7 + 1
+                mes = fim.strftime("%B %Y")
+                return f"Semana #{num_semana} · {mes}"
+
+            semanas_labels = {s: formatar_semana(s) for s in semanas_disponiveis}
 
             semana_selecionada = st.selectbox(
                 "Selecione a semana:",
