@@ -385,7 +385,12 @@ if not df_bruto.empty:
             def formatar_semana(s):
                 inicio = pd.Timestamp(s)
                 fim = inicio + pd.Timedelta(days=6)
-                num_semana = ((inicio.day - 1) // 7) + 1
+                # Se a semana cruza para outro mês, usa o fim como referência
+                if fim.month != inicio.month:
+                    ref = fim
+                else:
+                    ref = inicio
+                num_semana = ((ref.day - 1) // 7) + 1
                 mes = f"{MESES_PT[fim.month]} {fim.year}"
                 return f"Semana #{num_semana} - {mes.capitalize()}"
 
