@@ -414,7 +414,7 @@ if not df_bruto.empty:
                     nick = row["nick"]
                     if nick in df_semana_anterior.index:
                         return row[col] - df_semana_anterior.loc[nick, col]
-                    return row[col]
+                    return 0
 
                 for col in ["partidas", "vitorias", "kills", "assists", "headshots", "revives", "dano_medio", "top10"]:
                     df_semana_atual[col] = df_semana_atual.apply(lambda r: calcular_diff(r, col), axis=1)
