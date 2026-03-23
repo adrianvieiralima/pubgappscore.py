@@ -177,25 +177,10 @@ try:
     cursor.executemany(sql, resultados)
 
     # ===============================
-    # SNAPSHOT SEMANAL (delta)
+    # SNAPSHOT SEMANAL
     # ===============================
     semana_atual = get_segunda_feira()
-    semana_anterior = semana_atual - timedelta(weeks=1)
     print(f"📊 Salvando snapshot semanal para semana de {semana_atual}...")
-
-    # Busca snapshot da semana anterior para calcular delta
-    cursor.execute(
-        "SELECT nick, partidas, kr, vitorias, kills, dano_medio, assists, headshots, revives, kill_dist_max, top10 FROM ranking_semanal WHERE semana = %s",
-        (semana_anterior,)
-    )
-    rows_anteriores = cursor.fetchall()
-    snapshot_anterior = {
-        row[0]: row[1:] for row in rows_anteriores
-    }
-
-    cols_delta = ["partidas", "vitorias", "kills", "assists", "headshots", "revives", "top10"]
-    idx = {"partidas": 0, "kr": 1, "vitorias": 2, "kills": 3, "dano_medio": 4,
-           "assists": 5, "headshots": 6, "revives": 7, "kill_dist_max": 8, "top10": 9}
 
     sql_semanal = """
     INSERT INTO ranking_semanal
@@ -216,32 +201,11 @@ try:
     atualizado_em=EXCLUDED.atualizado_em
     """
 
-    resultados_semanal = []
-    for r in resultados:
-        nick = r[0]
-        ant = snapshot_anterior.get(nick)
-        if ant:
-            # Salva apenas o delta em relação à semana anterior
-            partidas  = max(0, r[1]  - ant[idx["partidas"]])
-            vitorias  = max(0, r[3]  - ant[idx["vitorias"]])
-            kills     = max(0, r[4]  - ant[idx["kills"]])
-            assists   = max(0, r[6]  - ant[idx["assists"]])
-            headshots = max(0, r[7]  - ant[idx["headshots"]])
-            revives   = max(0, r[8]  - ant[idx["revives"]])
-            top10     = max(0, r[10] - ant[idx["top10"]])
-            dano_medio = r[5]
-            kr         = round(kills / partidas, 2) if partidas > 0 else 0.0
-            kill_dist_max = r[9]
-        else:
-            # Primeira semana: salva zerado para não distorcer
-            partidas, kr, vitorias, kills = 0, 0.0, 0, 0
-            dano_medio, assists, headshots = 0, 0, 0
-            revives, kill_dist_max, top10 = 0, 0.0, 0
-
-        resultados_semanal.append((
-            nick, semana_atual, partidas, kr, vitorias, kills,
-            dano_medio, assists, headshots, revives, kill_dist_max, top10, r[11]
-        ))
+    resultados_semanal = [
+        (r[0], semana_atual, r[1], r[2], r[3], r[4],
+         r[5], r[6], r[7], r[8], r[9], r[10], r[11])
+        for r in resultados
+    ]
 
     cursor.executemany(sql_semanal, resultados_semanal)
     conn.commit()
