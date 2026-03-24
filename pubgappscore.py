@@ -138,7 +138,7 @@ def grafico_horizontal(df, col, titulo, cor):
         xaxis=dict(showgrid=True, gridcolor="#2a2a2a"),
         yaxis=dict(showgrid=False),
         margin=dict(l=10, r=10, t=40, b=10),
-        height=max(300, len(df_sorted) * 28)
+        height=500
     )
     st.plotly_chart(fig, use_container_width=True)
 
@@ -437,7 +437,7 @@ if not df_bruto.empty:
             grafico_horizontal(df_graf, "headshots", "💀 Headshots", "#0078ff")
         with col_g2:
             grafico_horizontal(df_graf, "vitorias", "🏆 Vitórias", "#00cc66")
-            grafico_horizontal(df_graf[df_graf["kills"] > 0], "dano_medio", "🔥 Dano Médio", "#ff4b4b")
+            grafico_horizontal(df_graf, "dano_medio", "🔥 Dano Médio", "#ff4b4b")
 
     st.markdown("#### 🚩 Recordes Individuais")
     if not df_valid.empty:
