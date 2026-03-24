@@ -437,7 +437,13 @@ if not df_bruto.empty:
             grafico_horizontal(df_graf, "headshots", "💀 Headshots", "#0078ff")
         with col_g2:
             grafico_horizontal(df_graf, "vitorias", "🏆 Vitórias", "#00cc66")
-            grafico_horizontal(df_graf[df_graf["kills"] > 0], "dano_medio", "🔥 Dano Médio", "#ff4b4b")
+            df_dano = df_graf[df_graf["kills"] > 0]
+            total_jogadores = len(df_graf)
+            altura_dano = int(500 * len(df_dano) / total_jogadores) if total_jogadores > 0 else 500
+            df_sorted_dano = df_dano.sort_values("dano_medio", ascending=True).copy()
+            fig_dano = px.bar(df_sorted_dano, x="dano_medio", y="nick", orientation="h", title="🔥 Dano Médio", color_discrete_sequence=["#ff4b4b"])
+            fig_dano.update_layout(paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)", font_color="white", title_font_color="white", xaxis=dict(showgrid=True, gridcolor="#2a2a2a"), yaxis=dict(showgrid=False), margin=dict(l=10, r=10, t=40, b=10), height=altura_dano)
+            st.plotly_chart(fig_dano, use_container_width=True)
 
     st.markdown("#### 🚩 Recordes Individuais")
     if not df_valid.empty:
