@@ -194,7 +194,7 @@ try:
     if only_date_updates:
         for updated_at, nick in only_date_updates:
             cursor.execute(
-                "UPDATE ranking_squad SET updated_at = %s WHERE nick = %s AND updated_at IS NULL",
+                "UPDATE ranking_squad SET updated_at = %s, atualizado_em = atualizado_em WHERE nick = %s AND updated_at IS NULL",
                 (updated_at, nick)
             )
             print(f"📅 updated_at atualizado para {nick}: {updated_at}")
