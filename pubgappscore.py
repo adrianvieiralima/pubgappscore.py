@@ -202,7 +202,12 @@ if not df_bruto.empty:
         hoje = pd.Timestamp.utcnow()
         df_local["updated_at"] = pd.to_datetime(df_local["updated_at"], utc=True, errors="coerce")
         df_local["atualizado_em"] = pd.to_datetime(df_local["atualizado_em"], utc=True, errors="coerce")
+        # Usa updated_at se disponível, senão atualizado_em como fallback
         df_local["data_referencia"] = df_local["updated_at"].fillna(df_local["atualizado_em"])
+        # Se ainda for NaT, usa uma data muito antiga para garantir penalidade máxima
+        df_local["data_referencia"] = df_local["data_referencia"].fillna(
+            pd.Timestamp("2000-01-01", tz="UTC")
+        )
         df_local["dias_inativo"] = (hoje - df_local["data_referencia"]).dt.days.fillna(0)
         df_local["semanas_inativo"] = (df_local["dias_inativo"] // 7).astype(int)
         df_local[col_score] = df_local[col_score] * (0.85 ** df_local["semanas_inativo"])
@@ -385,7 +390,6 @@ if not df_bruto.empty:
             def formatar_semana(s):
                 inicio = pd.Timestamp(s)
                 fim = inicio + pd.Timedelta(days=6)
-                # Se a semana cruza para outro mês, usa o fim como referência
                 if fim.month != inicio.month:
                     ref = fim
                 else:
