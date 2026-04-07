@@ -186,11 +186,14 @@ try:
         WHEN EXCLUDED.partidas > 0 THEN EXCLUDED.atualizado_em
         ELSE ranking_squad.atualizado_em
     END,
-    updated_at=EXCLUDED.updated_at
+    updated_at = CASE
+        WHEN EXCLUDED.updated_at IS NOT NULL THEN EXCLUDED.updated_at
+        ELSE ranking_squad.updated_at
+    END
     """
     cursor.executemany(sql, resultados)
 
-    # Atualiza only_date — apenas updated_at para jogadores sem stats na API
+    # Atualiza only_date — apenas updated_at, sem tocar no atualizado_em
     if only_date_updates:
         for updated_at, nick in only_date_updates:
             cursor.execute(
