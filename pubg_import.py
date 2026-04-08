@@ -45,7 +45,6 @@ def get_segunda_feira():
 inicio_total = time.time()
 print("🚀 Detectando temporada...")
 
-# ======== AJUSTE AQUI (somente isso foi alterado) =========
 res_season = fazer_requisicao(f"{BASE_URL}/seasons")
 seasons = res_season.json()["data"]
 
@@ -55,7 +54,6 @@ current_season = next(
 )
 
 current_season_id = current_season["id"] if current_season else ""
-# ==========================================================
 
 print(f"📅 Temporada atual: {current_season_id}")
 
@@ -192,12 +190,14 @@ try:
         ELSE ranking_squad.atualizado_em
     END,
     updated_at = CASE
-        updated_at = COALESCE(EXCLUDED.updated_at, ranking_squad.updated_at)
+        WHEN EXCLUDED.updated_at IS NOT NULL 
+        THEN EXCLUDED.updated_at
         ELSE ranking_squad.updated_at
     END
     """
     cursor.executemany(sql, resultados)
 
+    # Atualiza only_date — apenas updated_at, sem tocar no atualizado_em
     if only_date_updates:
         for updated_at, nick in only_date_updates:
             cursor.execute(
@@ -206,6 +206,9 @@ try:
             )
             print(f"📅 updated_at atualizado para {nick}: {updated_at}")
 
+    # ===============================
+    # SNAPSHOT SEMANAL
+    # ===============================
     semana_atual = get_segunda_feira()
     semana_anterior = semana_atual - timedelta(weeks=1)
     print(f"📊 Salvando snapshot semanal para semana de {semana_atual}...")
