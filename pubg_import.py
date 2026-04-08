@@ -166,25 +166,30 @@ try:
     # ===============================
     # UPDATE RANKING_SQUAD
     # ===============================
-
     sql = """
-    INSERT INTO ranking_squad 
-    (nick, partidas, kr, vitorias, kills, dano_medio, 
+    INSERT INTO ranking_squad
+    (nick, partidas, kr, vitorias, kills, dano_medio,
      assists, headshots, revives, kill_dist_max, top10, atualizado_em, updated_at)
     VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
     ON CONFLICT (nick) DO UPDATE SET
-    partidas = EXCLUDED.partidas,
-    kr = EXCLUDED.kr,
-    vitorias = EXCLUDED.vitorias,
-    kills = EXCLUDED.kills,
-    dano_medio = EXCLUDED.dano_medio,
-    assists = EXCLUDED.assists,
-    headshots = EXCLUDED.headshots,
-    revives = EXCLUDED.revives,
-    kill_dist_max = EXCLUDED.kill_dist_max,
-    top10 = EXCLUDED.top10,
-    atualizado_em = EXCLUDED.atualizado_em,
-    updated_at = COALESCE(EXCLUDED.updated_at, ranking_squad.updated_at)
+    partidas=EXCLUDED.partidas,
+    kr=EXCLUDED.kr,
+    vitorias=EXCLUDED.vitorias,
+    kills=EXCLUDED.kills,
+    dano_medio=EXCLUDED.dano_medio,
+    assists=EXCLUDED.assists,
+    headshots=EXCLUDED.headshots,
+    revives=EXCLUDED.revives,
+    kill_dist_max=EXCLUDED.kill_dist_max,
+    top10=EXCLUDED.top10,
+    atualizado_em = CASE
+        WHEN EXCLUDED.partidas > 0 THEN EXCLUDED.atualizado_em
+        ELSE ranking_squad.atualizado_em
+    END,
+    updated_at = CASE
+        updated_at = COALESCE(EXCLUDED.updated_at, ranking_squad.updated_at)
+        ELSE ranking_squad.updated_at
+    END
     """
     cursor.executemany(sql, resultados)
 
