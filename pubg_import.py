@@ -45,6 +45,7 @@ def get_segunda_feira():
 inicio_total = time.time()
 print("🚀 Detectando temporada...")
 
+# ======== AJUSTE AQUI (somente isso foi alterado) =========
 res_season = fazer_requisicao(f"{BASE_URL}/seasons")
 seasons = res_season.json()["data"]
 
@@ -54,6 +55,7 @@ current_season = next(
 )
 
 current_season_id = current_season["id"] if current_season else ""
+# ==========================================================
 
 print(f"📅 Temporada atual: {current_season_id}")
 
@@ -166,4 +168,117 @@ try:
     conn = psycopg2.connect(DATABASE_URL)
     cursor = conn.cursor()
 
-    # (resto do código permanece exatamente igual...)
+    # ===============================
+    # UPDATE RANKING_SQUAD
+    # ===============================
+    sql = """
+    INSERT INTO ranking_squad
+    (nick, partidas, kr, vitorias, kills, dano_medio,
+     assists, headshots, revives, kill_dist_max, top10, atualizado_em, updated_at)
+    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+    ON CONFLICT (nick) DO UPDATE SET
+    partidas=EXCLUDED.partidas,
+    kr=EXCLUDED.kr,
+    vitorias=EXCLUDED.vitorias,
+    kills=EXCLUDED.kills,
+    dano_medio=EXCLUDED.dano_medio,
+    assists=EXCLUDED.assists,
+    headshots=EXCLUDED.headshots,
+    revives=EXCLUDED.revives,
+    kill_dist_max=EXCLUDED.kill_dist_max,
+    top10=EXCLUDED.top10,
+    atualizado_em = CASE
+        WHEN EXCLUDED.partidas > 0 THEN EXCLUDED.atualizado_em
+        ELSE ranking_squad.atualizado_em
+    END,
+    updated_at = CASE
+        updated_at = COALESCE(EXCLUDED.updated_at, ranking_squad.updated_at)
+        ELSE ranking_squad.updated_at
+    END
+    """
+    cursor.executemany(sql, resultados)
+
+    if only_date_updates:
+        for updated_at, nick in only_date_updates:
+            cursor.execute(
+                "UPDATE ranking_squad SET updated_at = %s, atualizado_em = atualizado_em WHERE nick = %s AND updated_at IS NULL",
+                (updated_at, nick)
+            )
+            print(f"📅 updated_at atualizado para {nick}: {updated_at}")
+
+    semana_atual = get_segunda_feira()
+    semana_anterior = semana_atual - timedelta(weeks=1)
+    print(f"📊 Salvando snapshot semanal para semana de {semana_atual}...")
+
+    cursor.execute(
+        "SELECT COUNT(*) FROM ranking_semanal WHERE semana = %s",
+        (semana_atual,)
+    )
+    ja_existe_semana_atual = cursor.fetchone()[0] > 0
+
+    if not ja_existe_semana_atual:
+        print(f"🔄 Primeiro sync da semana. Atualizando snapshot de {semana_anterior}...")
+        sql_atualiza_anterior = """
+        INSERT INTO ranking_semanal
+        (nick, semana, partidas, kr, vitorias, kills, dano_medio,
+         assists, headshots, revives, kill_dist_max, top10, atualizado_em)
+        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+        ON CONFLICT (nick, semana) DO UPDATE SET
+        partidas=EXCLUDED.partidas,
+        kr=EXCLUDED.kr,
+        vitorias=EXCLUDED.vitorias,
+        kills=EXCLUDED.kills,
+        dano_medio=EXCLUDED.dano_medio,
+        assists=EXCLUDED.assists,
+        headshots=EXCLUDED.headshots,
+        revives=EXCLUDED.revives,
+        kill_dist_max=EXCLUDED.kill_dist_max,
+        top10=EXCLUDED.top10,
+        atualizado_em=EXCLUDED.atualizado_em
+        """
+        resultados_anterior = [
+            (r[0], semana_anterior, r[1], r[2], r[3], r[4],
+             r[5], r[6], r[7], r[8], r[9], r[10], r[11])
+            for r in resultados
+        ]
+        cursor.executemany(sql_atualiza_anterior, resultados_anterior)
+        print(f"✅ Snapshot de {semana_anterior} atualizado como âncora.")
+
+    sql_semanal = """
+    INSERT INTO ranking_semanal
+    (nick, semana, partidas, kr, vitorias, kills, dano_medio,
+     assists, headshots, revives, kill_dist_max, top10, atualizado_em)
+    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+    ON CONFLICT (nick, semana) DO UPDATE SET
+    partidas=EXCLUDED.partidas,
+    kr=EXCLUDED.kr,
+    vitorias=EXCLUDED.vitorias,
+    kills=EXCLUDED.kills,
+    dano_medio=EXCLUDED.dano_medio,
+    assists=EXCLUDED.assists,
+    headshots=EXCLUDED.headshots,
+    revives=EXCLUDED.revives,
+    kill_dist_max=EXCLUDED.kill_dist_max,
+    top10=EXCLUDED.top10,
+    atualizado_em=EXCLUDED.atualizado_em
+    """
+
+    resultados_semanal = [
+        (r[0], semana_atual, r[1], r[2], r[3], r[4],
+         r[5], r[6], r[7], r[8], r[9], r[10], r[11])
+        for r in resultados
+    ]
+
+    cursor.executemany(sql_semanal, resultados_semanal)
+    conn.commit()
+
+    cursor.close()
+    conn.close()
+
+    print("💾 Banco atualizado com sucesso!")
+
+except Exception as e:
+    print(f"💥 Erro no banco: {e}")
+
+fim_total = time.time()
+print(f"⏱ Tempo total: {round(fim_total - inicio_total, 2)} segundos")
