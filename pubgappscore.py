@@ -5,6 +5,7 @@ import subprocess
 import sys
 import plotly.express as px
 from datetime import datetime
+
 MESES_PT = {
     1: "janeiro", 2: "fevereiro", 3: "março", 4: "abril",
     5: "maio", 6: "junho", 7: "julho", 8: "agosto",
@@ -382,25 +383,38 @@ if not df_bruto.empty:
 
     if opcao_periodo == "📅 Por Semana":
         if not df_semanal.empty:
-            df_semanal["semana"] = pd.to_datetime(df_semanal["semana"])
+            df_semanal["semana"] = pd.to_datetime(df_semanal["semana"]).dt.normalize()
             semanas_disponiveis = sorted(df_semanal["semana"].unique(), reverse=True)
 
             def formatar_semana(s):
-                inicio = pd.Timestamp(s)
-                fim = inicio + pd.Timedelta(days=6)
-                if fim.month != inicio.month:
-                    ref = fim
-                else:
-                    ref = inicio
-                num_semana = ((ref.day - 1) // 7) + 1
-                mes = f"{MESES_PT[fim.month]} {fim.year}"
-                return f"Semana #{num_semana} - {mes.capitalize()}"
+                dt = pd.Timestamp(s)
+                fim = dt + pd.Timedelta(days=6)
+                
+                # Pega a semana do ano (ISO)
+                _, num_semana_ano, _ = fim.isocalendar()
+                
+                # Pega a semana do primeiro dia do mês
+                primeiro_dia_mes = fim.replace(day=1)
+                _, semana_inicio_mes, _ = primeiro_dia_mes.isocalendar()
+                
+                # Cálculo da semana no mês (Garante que 07/04 seja Semana #2)
+                num_semana_mes = num_semana_ano - semana_inicio_mes + 1
+                
+                mes_nome = MESES_PT[fim.month].capitalize()
+                return f"Semana #{num_semana_mes} - {mes_nome} {fim.year}"
 
-            semanas_labels = {s: formatar_semana(s) for s in semanas_disponiveis}
+            # Filtra para não repetir nomes no menu (Deduplicação)
+            semanas_labels = {}
+            for s in semanas_disponiveis:
+                label = formatar_semana(s)
+                if label not in semanas_labels.values():
+                    semanas_labels[s] = label
+
+            opcoes_finais = list(semanas_labels.keys())
 
             semana_selecionada = st.selectbox(
                 "Selecione a semana:",
-                options=semanas_disponiveis,
+                options=opcoes_finais,
                 format_func=lambda s: semanas_labels[s]
             )
 
