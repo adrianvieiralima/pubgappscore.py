@@ -389,21 +389,10 @@ if not df_bruto.empty:
             def formatar_semana(s):
                 dt = pd.Timestamp(s)
                 fim = dt + pd.Timedelta(days=6)
-                
-                # Pega a semana do ano (ISO)
-                _, num_semana_ano, _ = fim.isocalendar()
-                
-                # Pega a semana do primeiro dia do mês
-                primeiro_dia_mes = fim.replace(day=1)
-                _, semana_inicio_mes, _ = primeiro_dia_mes.isocalendar()
-                
-                # Cálculo da semana no mês (Garante que 07/04 seja Semana #2)
-                num_semana_mes = num_semana_ano - semana_inicio_mes + 1
-                
+                num_semana_mes = (fim.day - 1) // 7 + 1
                 mes_nome = MESES_PT[fim.month].capitalize()
                 return f"Semana #{num_semana_mes} - {mes_nome} {fim.year}"
 
-            # Filtra para não repetir nomes no menu (Deduplicação)
             semanas_labels = {}
             for s in semanas_disponiveis:
                 label = formatar_semana(s)
