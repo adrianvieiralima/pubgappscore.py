@@ -7,6 +7,9 @@ API_KEY = os.getenv("PUBG_API_KEY") or "SUA_CHAVE_AQUI"
 DATABASE_URL = os.getenv("DATABASE_URL")
 SHARD = "steam"
 
+# Início oficial da Temporada 41 (8 de abril de 2026)
+INICIO_TEMPORADA_41 = "2026-04-08T00:00:00Z"
+
 PLAYERS = {
     "Adrian-Wan":"account.58beb24ada7346408942d42dc64c7901",
     "MironoteuCool":"account.24b0600cbba342eab1546ae2881f50fa",
@@ -64,13 +67,14 @@ def processar_player(conn, player_name, player_id):
     ignoradas_ja_processada = 0
     ignoradas_modo_errado = 0
     ignoradas_nao_casual = 0
+    ignoradas_antigas = 0
 
     for m in matches:
         match_id = m["id"]
 
         cur.execute("SELECT 1 FROM matches_processadas WHERE match_id = %s AND player_name = %s", (match_id, player_name))
         if cur.fetchone():
-            print(f"   ⏭️  {match_id} → já processada, ignorando")
+            print(f"    ⏭️  {match_id} → já processada, ignorando")
             ignoradas_ja_processada += 1
             continue
 
@@ -79,9 +83,19 @@ def processar_player(conn, player_name, player_id):
             continue
 
         attr = match_data["data"]["attributes"]
+        created_at = attr.get("createdAt")
+
+        # FILTRO: Ignora partidas anteriores à data de hoje (Temporada anterior)
+        if created_at < INICIO_TEMPORADA_41:
+            print(f"    ⏩ {match_id} → partida antiga ({created_at}), ignorando")
+            cur.execute("INSERT INTO matches_processadas (match_id, player_name) VALUES (%s, %s) ON CONFLICT DO NOTHING", (match_id, player_name))
+            conn.commit()
+            ignoradas_antigas += 1
+            time.sleep(0.5)
+            continue
 
         if attr.get("gameMode") != "squad":
-            print(f"   ❌ {match_id} → modo errado ({attr.get('gameMode')}), ignorando")
+            print(f"    ❌ {match_id} → modo errado ({attr.get('gameMode')}), ignorando")
             ignoradas_modo_errado += 1
             cur.execute("INSERT INTO matches_processadas (match_id, player_name) VALUES (%s, %s) ON CONFLICT DO NOTHING", (match_id, player_name))
             conn.commit()
@@ -92,7 +106,7 @@ def processar_player(conn, player_name, player_id):
         humanos = sum(1 for p in participants if p["attributes"]["stats"].get("playerId", "").startswith("account."))
 
         if attr.get("matchType") == "casual" or humanos <= 12:
-            print(f"   ✅ {match_id} → casual/bots (matchType={attr.get('matchType')}, humanos={humanos}), processando")
+            print(f"    ✅ {match_id} → casual/bots (matchType={attr.get('matchType')}, humanos={humanos}), processando")
             p_stats = next((x["attributes"]["stats"] for x in participants if x["attributes"]["stats"].get("playerId") == player_id), None)
 
             if p_stats:
@@ -130,18 +144,17 @@ def processar_player(conn, player_name, player_id):
                 penalidades += 1
 
         else:
-            print(f"   ❌ {match_id} → não casual/sem bots (matchType={attr.get('matchType')}, humanos={humanos}), ignorando")
+            print(f"    ❌ {match_id} → não casual/sem bots (matchType={attr.get('matchType')}, humanos={humanos}), ignorando")
             ignoradas_nao_casual += 1
 
-        # Marca SEMPRE como processada — evita reprocessamento em execuções futuras
         cur.execute("INSERT INTO matches_processadas (match_id, player_name) VALUES (%s, %s) ON CONFLICT DO NOTHING", (match_id, player_name))
         conn.commit()
         time.sleep(0.5)
 
     print(f"📊 Resumo {player_name}: {penalidades} penalidade(s) aplicada(s) | "
-          f"{ignoradas_ja_processada} já processada(s) | "
+          f"{ignoradas_antigas} antigas ignoradas | "
           f"{ignoradas_modo_errado} modo errado | "
-          f"{ignoradas_nao_casual} não casual/sem bots")
+          f"{ignoradas_nao_casual} não casual")
 
     return penalidades
 
@@ -151,7 +164,6 @@ if __name__ == "__main__":
     else:
         conn = psycopg2.connect(DATABASE_URL)
 
-        # --- PASSO IMPORTANTE: LIMPANDO O HISTÓRICO PARA REPROCESSAR ---
         print("🧹 Limpando histórico de partidas para reprocessar corretamente...")
         with conn.cursor() as c:
             c.execute("DELETE FROM matches_processadas;")
