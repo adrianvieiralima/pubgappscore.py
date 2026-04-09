@@ -386,8 +386,8 @@ if not df_bruto.empty:
             # Normalizar a coluna de data
             df_semanal["semana"] = pd.to_datetime(df_semanal["semana"]).dt.normalize()
 
-            # FILTRO: Mantém apenas dados da nova temporada (Abril de 2026 em diante)
-            data_corte = pd.Timestamp("2026-04-01")
+            # FILTRO: Mantém apenas registros a partir de hoje (8 de abril de 2026)
+            data_corte = pd.Timestamp("2026-04-08")
             df_semanal = df_semanal[df_semanal["semana"] >= data_corte].copy()
 
             if not df_semanal.empty:
@@ -454,7 +454,7 @@ if not df_bruto.empty:
 
                 df_graf = df_semana_atual
             else:
-                st.info("Nenhum dado encontrado para a temporada de Abril 2026.")
+                st.info("Nenhum dado encontrado para a temporada iniciada em 08/04/2026.")
                 df_graf = None
         else:
             st.info("Nenhum dado semanal disponível ainda.")
