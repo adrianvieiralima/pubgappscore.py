@@ -383,60 +383,81 @@ if not df_bruto.empty:
 
     if opcao_periodo == "📅 Por Semana":
         if not df_semanal.empty:
+            # Normalizar a coluna de data
             df_semanal["semana"] = pd.to_datetime(df_semanal["semana"]).dt.normalize()
-            semanas_disponiveis = sorted(df_semanal["semana"].unique(), reverse=True)
 
-            def formatar_semana(s):
-                dt = pd.Timestamp(s)
-                primeiro_dia_mes = dt.replace(day=1)
-                primeira_segunda = primeiro_dia_mes - pd.Timedelta(days=primeiro_dia_mes.weekday())
-                num_semana_mes = ((dt - primeira_segunda).days // 7) + 1
-                mes_nome = MESES_PT[dt.month].capitalize()
-                return f"Semana #{num_semana_mes} - {mes_nome} {dt.year}"
+            # FILTRO: Mantém apenas dados da nova temporada (Abril de 2026 em diante)
+            data_corte = pd.Timestamp("2026-04-01")
+            df_semanal = df_semanal[df_semanal["semana"] >= data_corte].copy()
 
-            semanas_labels = {}
-            for s in semanas_disponiveis:
-                label = formatar_semana(s)
-                if label not in semanas_labels.values():
-                    semanas_labels[s] = label
+            if not df_semanal.empty:
+                semanas_disponiveis = sorted(df_semanal["semana"].unique(), reverse=True)
 
-            opcoes_finais = list(semanas_labels.keys())
+                def formatar_semana(s):
+                    dt = pd.Timestamp(s)
+                    # A semana pertence ao mês que contém a QUINTA-FEIRA (padrão ISO)
+                    quinta_feira = dt + pd.Timedelta(days=(3 - dt.weekday()))
+                    
+                    mes_ref = quinta_feira.month
+                    ano_ref = quinta_feira.year
+                    
+                    # Primeiro dia do mês da Quinta-Feira para cálculo de base
+                    primeiro_dia_mes = pd.Timestamp(year=ano_ref, month=mes_ref, day=1)
+                    
+                    # Primeira segunda-feira que leva a esse mês
+                    primeira_segunda = primeiro_dia_mes - pd.Timedelta(days=primeiro_dia_mes.weekday())
+                    
+                    # Número da semana (contando de 7 em 7 dias a partir da primeira segunda)
+                    num_semana_mes = ((quinta_feira - primeira_segunda).days // 7) + 1
+                    
+                    mes_nome = MESES_PT[mes_ref].capitalize()
+                    return f"Semana #{num_semana_mes} - {mes_nome} {ano_ref}"
 
-            semana_selecionada = st.selectbox(
-                "Selecione a semana:",
-                options=opcoes_finais,
-                format_func=lambda s: semanas_labels[s]
-            )
+                semanas_labels = {}
+                for s in semanas_disponiveis:
+                    label = formatar_semana(s)
+                    if label not in semanas_labels.values():
+                        semanas_labels[s] = label
 
-            df_semana_atual = df_semanal[df_semanal["semana"] == semana_selecionada].copy()
+                opcoes_finais = list(semanas_labels.keys())
 
-            idx_semana = list(semanas_disponiveis).index(semana_selecionada)
-            if idx_semana + 1 < len(semanas_disponiveis):
-                semana_anterior = semanas_disponiveis[idx_semana + 1]
-                df_semana_anterior = df_semanal[df_semanal["semana"] == semana_anterior].copy()
-                df_semana_anterior = df_semana_anterior.set_index("nick")
-
-                def calcular_diff(row, col):
-                    nick = row["nick"]
-                    if nick in df_semana_anterior.index:
-                        return row[col] - df_semana_anterior.loc[nick, col]
-                    return 0
-
-                for col in ["partidas", "vitorias", "kills", "assists", "headshots", "revives", "top10"]:
-                    df_semana_atual[col] = df_semana_atual.apply(lambda r: calcular_diff(r, col), axis=1)
-
-                df_semana_atual["kills_delta"] = df_semana_atual["kills"]
-                df_semana_atual["dano_medio"] = df_semana_atual.apply(
-                    lambda r: r["dano_medio"] if r["kills_delta"] > 0 else 0, axis=1
+                semana_selecionada = st.selectbox(
+                    "Selecione a semana:",
+                    options=opcoes_finais,
+                    format_func=lambda s: semanas_labels[s]
                 )
-                df_semana_atual = df_semana_atual.drop(columns=["kills_delta"])
+
+                df_semana_atual = df_semanal[df_semanal["semana"] == semana_selecionada].copy()
+
+                idx_semana = list(semanas_disponiveis).index(semana_selecionada)
+                if idx_semana + 1 < len(semanas_disponiveis):
+                    semana_anterior = semanas_disponiveis[idx_semana + 1]
+                    df_semana_anterior = df_semanal[df_semanal["semana"] == semana_anterior].copy()
+                    df_semana_anterior = df_semana_anterior.set_index("nick")
+
+                    def calcular_diff(row, col):
+                        nick = row["nick"]
+                        if nick in df_semana_anterior.index:
+                            return row[col] - df_semana_anterior.loc[nick, col]
+                        return 0
+
+                    for col in ["partidas", "vitorias", "kills", "assists", "headshots", "revives", "top10"]:
+                        df_semana_atual[col] = df_semana_atual.apply(lambda r: calcular_diff(r, col), axis=1)
+
+                    df_semana_atual["kills_delta"] = df_semana_atual["kills"]
+                    df_semana_atual["dano_medio"] = df_semana_atual.apply(
+                        lambda r: r["dano_medio"] if r["kills_delta"] > 0 else 0, axis=1
+                    )
+                    df_semana_atual = df_semana_atual.drop(columns=["kills_delta"])
+                else:
+                    st.caption(f"📊 {formatar_semana(semana_selecionada)} (Início da Temporada)")
+
+                df_graf = df_semana_atual
             else:
-                st.caption("📊 Estatísticas da Semana")
-
-            df_graf = df_semana_atual
-
+                st.info("Nenhum dado encontrado para a temporada de Abril 2026.")
+                df_graf = None
         else:
-            st.info("Nenhum dado semanal disponível ainda. Aguarde o próximo sync.")
+            st.info("Nenhum dado semanal disponível ainda.")
             df_graf = None
 
     else:
