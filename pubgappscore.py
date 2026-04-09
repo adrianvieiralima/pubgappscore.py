@@ -15,7 +15,7 @@ MESES_PT = {
 # ===============================
 # ⏱ TEMPO DE ATUALIZAÇÃO (minutos)
 # ===============================
-MINUTOS_PARA_ATUALIZAR = 5  # 👈 Altere aqui o intervalo de atualização
+MINUTOS_PARA_ATUALIZAR = 2  # 👈 Altere aqui o intervalo de atualização
 
 
 def checar_e_atualizar():
