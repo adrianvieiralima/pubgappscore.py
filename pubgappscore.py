@@ -4,7 +4,7 @@ import pandas as pd
 import subprocess
 import sys
 import plotly.express as px
-from datetime import datetime
+from datetime import datetime, timedelta, timezone
 
 MESES_PT = {
     1: "janeiro", 2: "fevereiro", 3: "março", 4: "abril",
@@ -12,12 +12,44 @@ MESES_PT = {
     9: "setembro", 10: "outubro", 11: "novembro", 12: "dezembro"
 }
 
-if "ranking_atualizado" not in st.session_state:
+# ===============================
+# ⏱ TEMPO DE ATUALIZAÇÃO (minutos)
+# ===============================
+MINUTOS_PARA_ATUALIZAR = 5  # 👈 Altere aqui o intervalo de atualização
+
+
+def checar_e_atualizar():
     try:
-        subprocess.run([sys.executable, "pubg_import.py"], check=True)
-        st.session_state["ranking_atualizado"] = True
+        conn = st.connection(
+            "postgresql",
+            type="sql",
+            url=st.secrets["DATABASE_URL"]
+        )
+        resultado = conn.query(
+            "SELECT MAX(atualizado_em) AS ultima FROM ranking_squad",
+            ttl=0
+        )
+        ultima = resultado["ultima"].iloc[0]
+
+        if ultima is not None:
+            if ultima.tzinfo is None:
+                ultima = ultima.replace(tzinfo=timezone.utc)
+            agora = datetime.now(timezone.utc)
+            diferenca = agora - ultima
+            precisa_atualizar = diferenca > timedelta(minutes=MINUTOS_PARA_ATUALIZAR)
+        else:
+            precisa_atualizar = True
+
+        if precisa_atualizar:
+            with st.spinner("⏳ Atualizando dados do ranking..."):
+                subprocess.run([sys.executable, "pubg_import.py"], check=True)
+        # Se não precisar atualizar, carrega os dados do banco instantaneamente
+
     except Exception as e:
-        st.warning(f"Erro ao atualizar ranking: {e}")
+        st.warning(f"Erro ao verificar atualização: {e}")
+
+
+checar_e_atualizar()
 
 st.set_page_config(
     page_title="PUBG Squad Ranking",
@@ -382,13 +414,12 @@ if not df_bruto.empty:
         horizontal=True
     )
 
-    # Obter lista de todos os nicks únicos da tabela principal para padronizar o gráfico
     todos_os_nicks = df_bruto["nick"].unique()
 
     if opcao_periodo == "📅 Por Semana":
         if not df_semanal.empty:
             df_semanal["semana"] = pd.to_datetime(df_semanal["semana"]).dt.tz_localize(None).dt.normalize()
-            data_corte = pd.Timestamp("2026-04-06").normalize() 
+            data_corte = pd.Timestamp("2026-04-06").normalize()
             df_semanal = df_semanal[df_semanal["semana"] >= data_corte].copy()
 
             if not df_semanal.empty:
@@ -400,7 +431,7 @@ if not df_bruto.empty:
                     return f"Semana #{((quinta_feira.day - 1) // 7) + 1} - {MESES_PT[quinta_feira.month].capitalize()} {quinta_feira.year}"
 
                 semanas_labels = {s: formatar_semana(s) for s in semanas_disponiveis}
-                
+
                 semana_selecionada = st.selectbox(
                     "Selecione a semana:",
                     options=list(semanas_labels.keys()),
@@ -409,11 +440,10 @@ if not df_bruto.empty:
                 )
 
                 df_graf_bruto = df_semanal[df_semanal["semana"] == semana_selecionada].copy()
-                
-                # REINDEXAÇÃO: Garante que todos os players apareçam, mesmo com 0
+
                 df_graf = pd.DataFrame({"nick": todos_os_nicks})
                 df_graf = df_graf.merge(df_graf_bruto, on="nick", how="left").fillna(0)
-                
+
                 st.caption(f"📊 Dados atuais: {semanas_labels[semana_selecionada]}")
             else:
                 st.info("Nenhum dado encontrado para a Temporada 41.")
@@ -423,10 +453,8 @@ if not df_bruto.empty:
             df_graf = None
 
     else:
-        # Temporada Completa
         df_graf = df_bruto.copy()
 
-    # Renderização dos Gráficos
     if df_graf is not None and not df_graf.empty:
         col_g1, col_g2 = st.columns(2)
         with col_g1:
