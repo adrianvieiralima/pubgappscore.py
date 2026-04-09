@@ -5,7 +5,6 @@ import subprocess
 import sys
 import plotly.express as px
 from datetime import datetime
-
 MESES_PT = {
     1: "janeiro", 2: "fevereiro", 3: "março", 4: "abril",
     5: "maio", 6: "junho", 7: "julho", 8: "agosto",
@@ -144,7 +143,7 @@ def grafico_horizontal(df, col, titulo, cor):
     st.plotly_chart(fig, use_container_width=True)
 
 st.markdown(
-    "<h1 style='text-align:left;'>🏆 PUBG Ranking Squad - Season 41</h1>",
+    "<h1 style='text-align:left;'>🏆 PUBG Ranking Squad - Season 40</h1>",
     unsafe_allow_html=True
 )
 
@@ -201,12 +200,9 @@ if not df_bruto.empty:
 
     def aplicar_decaimento(df_local, col_score):
         hoje = pd.Timestamp.utcnow()
-        df_local["updated_at"] = pd.to_datetime(df_local["updated_at"], errors="coerce").dt.tz_localize("UTC")
+        df_local["updated_at"] = pd.to_datetime(df_local["updated_at"], utc=True, errors="coerce")
         df_local["atualizado_em"] = pd.to_datetime(df_local["atualizado_em"], utc=True, errors="coerce")
         df_local["data_referencia"] = df_local["updated_at"].fillna(df_local["atualizado_em"])
-        df_local["data_referencia"] = df_local["data_referencia"].fillna(
-            pd.Timestamp("2000-01-01", tz="UTC")
-        )
         df_local["dias_inativo"] = (hoje - df_local["data_referencia"]).dt.days.fillna(0)
         df_local["semanas_inativo"] = (df_local["dias_inativo"] // 7).astype(int)
         df_local[col_score] = df_local[col_score] * (0.85 ** df_local["semanas_inativo"])
@@ -314,7 +310,6 @@ if not df_bruto.empty:
             (df_valid["assists"] / df_valid["partidas_calc"] * 0.1) +
             (df_valid["headshots"] / df_valid["partidas_calc"] * 0.2) +
             (df_valid["revives"] / df_valid["partidas_calc"] * 0.33) +
-            (df_valid["top10"] / df_valid["partidas_calc"] * 0.1) +
             (df_valid["dano_medio"] * 0.001)
         )
         renderizar_ranking(
@@ -322,7 +317,7 @@ if not df_bruto.empty:
             "Score_Pro",
             f_pro,
             "Fórmula PRO: Equilíbrio entre sobrevivência e agressividade. Valoriza consistência em vitórias, kills, precisão, suporte e dano.",
-            "(Win Rate × 5) + (Kills/P × 0.5) + (Assists/P × 0.1) + (Headshots/P × 0.2) + (Revives/P × 0.33) + (Top10/P × 0.1) + (Dano Médio × 0.001)"
+            "(Win Rate × 5) + (Kills/P × 0.5) + (Assists/P × 0.1) + (Headshots/P × 0.2) + (Revives/P × 0.33) + (Dano Médio × 0.001)"
         )
 
     with tab2:
@@ -384,65 +379,82 @@ if not df_bruto.empty:
 
     if opcao_periodo == "📅 Por Semana":
         if not df_semanal.empty:
-            # Padroniza as datas e define o corte para o início desta semana (Temporada 41)
-            df_semanal["semana"] = pd.to_datetime(df_semanal["semana"]).dt.tz_localize(None).dt.normalize()
-            data_corte = pd.Timestamp("2026-04-06").normalize() 
-            
-            # Filtra para ignorar Março e temporadas anteriores
-            df_semanal = df_semanal[df_semanal["semana"] >= data_corte].copy()
+            df_semanal["semana"] = pd.to_datetime(df_semanal["semana"])
+            semanas_disponiveis = sorted(df_semanal["semana"].unique(), reverse=True)
 
-            if not df_semanal.empty:
-                semanas_disponiveis = sorted(df_semanal["semana"].unique(), reverse=True)
-
-                def formatar_semana(s):
-                    dt = pd.Timestamp(s)
-                    quinta_feira = dt + pd.Timedelta(days=(3 - dt.weekday()))
-                    return f"Semana #{((quinta_feira.day - 1) // 7) + 1} - {MESES_PT[quinta_feira.month].capitalize()} {quinta_feira.year}"
-
-                semanas_labels = {s: formatar_semana(s) for s in semanas_disponiveis}
-                
-                semana_selecionada = st.selectbox(
-                    "Selecione a semana:",
-                    options=list(semanas_labels.keys()),
-                    format_func=lambda s: semanas_labels[s],
-                    key="filtro_semana_nova"
-                )
-
-                df_semana_filtrada = df_semanal[df_semanal["semana"] == semana_selecionada].copy()
-
-                # Normaliza nicks para comparação (sem espaços, sem case)
-                nicks_validos = df_valid["nick"].str.strip().tolist()
-                nicks_semana = df_semana_filtrada["nick"].str.strip().tolist() if not df_semana_filtrada.empty else []
-                nicks_faltando = [n for n in nicks_validos if n not in nicks_semana]
-
-                # Adiciona linhas zeradas para players sem dados na semana
-                if nicks_faltando:
-                    colunas = df_semana_filtrada.columns.tolist() if not df_semana_filtrada.empty else ["nick", "kills", "headshots", "vitorias", "dano_medio"]
-                    linhas_vazias = pd.DataFrame([
-                        {col: (nick if col == "nick" else 0) for col in colunas}
-                        for nick in nicks_faltando
-                    ])
-                    df_graf = pd.concat([df_semana_filtrada, linhas_vazias], ignore_index=True)
+            def formatar_semana(s):
+                inicio = pd.Timestamp(s)
+                fim = inicio + pd.Timedelta(days=6)
+                if fim.month != inicio.month:
+                    ref = fim
                 else:
-                    df_graf = df_semana_filtrada.copy()
+                    ref = inicio
+                num_semana = ((ref.day - 1) // 7) + 1
+                mes = f"{MESES_PT[fim.month]} {fim.year}"
+                return f"Semana #{num_semana} - {mes.capitalize()}"
 
-                for _col in ["kills", "headshots", "vitorias", "dano_medio"]:
-                    if _col in df_graf.columns:
-                        df_graf[_col] = pd.to_numeric(df_graf[_col], errors="coerce").fillna(0).astype(int)
+            semanas_labels = {s: formatar_semana(s) for s in semanas_disponiveis}
 
-                st.caption(f"📊 Dados atuais: {semanas_labels[semana_selecionada]}")
+            semana_selecionada = st.selectbox(
+                "Selecione a semana:",
+                options=semanas_disponiveis,
+                format_func=lambda s: semanas_labels[s]
+            )
+
+            df_semana_atual = df_semanal[df_semanal["semana"] == semana_selecionada].copy()
+
+            idx_semana = list(semanas_disponiveis).index(semana_selecionada)
+            if idx_semana + 1 < len(semanas_disponiveis):
+                semana_anterior = semanas_disponiveis[idx_semana + 1]
+                df_semana_anterior = df_semanal[df_semanal["semana"] == semana_anterior].copy()
+                df_semana_anterior = df_semana_anterior.set_index("nick")
+
+                def calcular_diff(row, col):
+                    nick = row["nick"]
+                    if nick in df_semana_anterior.index:
+                        return row[col] - df_semana_anterior.loc[nick, col]
+                    return 0
+
+                for col in ["partidas", "vitorias", "kills", "assists", "headshots", "revives", "top10"]:
+                    df_semana_atual[col] = df_semana_atual.apply(lambda r: calcular_diff(r, col), axis=1)
+
+                df_semana_atual["kills_delta"] = df_semana_atual["kills"]
+                df_semana_atual["dano_medio"] = df_semana_atual.apply(
+                    lambda r: r["dano_medio"] if r["kills_delta"] > 0 else 0, axis=1
+                )
+                df_semana_atual = df_semana_atual.drop(columns=["kills_delta"])
             else:
-                st.info("Nenhum dado encontrado para a Temporada 41.")
-                df_graf = None
+                st.caption("📊 Estatísticas da Semana")
+
+            # Garante que todos os players do ranking apareçam nos gráficos,
+            # mesmo os que não jogaram na semana selecionada (aparecem com 0)
+            cols_grafico = ["nick", "kills", "headshots", "vitorias", "dano_medio"]
+            nicks_semana = df_semana_atual["nick"].str.strip().tolist()
+            nicks_validos = df_valid["nick"].str.strip().tolist()
+            nicks_faltando = [n for n in nicks_validos if n not in nicks_semana]
+
+            if nicks_faltando:
+                linhas_vazias = pd.DataFrame({
+                    "nick": nicks_faltando,
+                    **{col: 0 for col in ["kills", "headshots", "vitorias", "dano_medio",
+                                          "partidas", "assists", "revives", "top10", "kr",
+                                          "kill_dist_max"]}
+                })
+                df_semana_atual = pd.concat([df_semana_atual, linhas_vazias], ignore_index=True)
+
+            for col in ["kills", "headshots", "vitorias", "dano_medio"]:
+                if col in df_semana_atual.columns:
+                    df_semana_atual[col] = pd.to_numeric(df_semana_atual[col], errors="coerce").fillna(0).astype(int)
+
+            df_graf = df_semana_atual
+
         else:
-            st.info("Sem dados semanais no banco.")
+            st.info("Nenhum dado semanal disponível ainda. Aguarde o próximo sync.")
             df_graf = None
 
     else:
-        # Temporada Completa utiliza os dados do ranking principal
         df_graf = df_valid.copy()
 
-    # Renderização dos Gráficos
     if df_graf is not None and not df_graf.empty:
         col_g1, col_g2 = st.columns(2)
         with col_g1:
