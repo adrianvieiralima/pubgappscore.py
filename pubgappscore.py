@@ -381,56 +381,47 @@ if not df_bruto.empty:
         horizontal=True
     )
 
-    if opcao_periodo == "📅 Por Semana":
+if opcao_periodo == "📅 Por Semana":
         if not df_semanal.empty:
-            # Força a conversão para datetime e remove o fuso horário para comparação segura
+            # 1. Padronização total das datas (Remove fuso horário e horas)
             df_semanal["semana"] = pd.to_datetime(df_semanal["semana"]).dt.tz_localize(None).dt.normalize()
-
-            # Define a data de hoje sem fuso horário
-            data_corte = pd.Timestamp("2026-04-08").normalize()
             
-            # Filtra: Garante que pegue tudo de hoje em diante
+            # 2. Define a data de corte para o início da semana de hoje ou o dia de hoje
+            # Usamos 2026-04-06 (segunda) ou 2026-04-08 (hoje) de forma flexível
+            data_corte = pd.Timestamp("2026-04-06").normalize() 
+            
+            # 3. Filtro robusto
             df_semanal = df_semanal[df_semanal["semana"] >= data_corte].copy()
 
             if not df_semanal.empty:
-                # O restante do código de formatação continua aqui...
                 semanas_disponiveis = sorted(df_semanal["semana"].unique(), reverse=True)
 
                 def formatar_semana(s):
                     dt = pd.Timestamp(s)
-                    # A semana pertence ao mês que contém a QUINTA-FEIRA (padrão ISO)
+                    # Lógica para bater com o seu print: Semana #2 - Abril 2026
                     quinta_feira = dt + pd.Timedelta(days=(3 - dt.weekday()))
-                    
                     mes_ref = quinta_feira.month
                     ano_ref = quinta_feira.year
-                    
-                    # Primeiro dia do mês da Quinta-Feira para cálculo de base
-                    primeiro_dia_mes = pd.Timestamp(year=ano_ref, month=mes_ref, day=1)
-                    
-                    # Primeira segunda-feira que leva a esse mês
-                    primeira_segunda = primeiro_dia_mes - pd.Timedelta(days=primeiro_dia_mes.weekday())
-                    
-                    # Número da semana (contando de 7 em 7 dias a partir da primeira segunda)
-                    num_semana_mes = ((quinta_feira - primeira_segunda).days // 7) + 1
-                    
-                    mes_nome = MESES_PT[mes_ref].capitalize()
-                    return f"Semana #{num_semana_mes} - {mes_nome} {ano_ref}"
+                    return f"Semana #{((quinta_feira.day - 1) // 7) + 1} - {MESES_PT[mes_ref].capitalize()} {ano_ref}"
 
-                semanas_labels = {}
-                for s in semanas_disponiveis:
-                    label = formatar_semana(s)
-                    if label not in semanas_labels.values():
-                        semanas_labels[s] = label
-
+                semanas_labels = {s: formatar_semana(s) for s in semanas_disponiveis}
                 opcoes_finais = list(semanas_labels.keys())
 
                 semana_selecionada = st.selectbox(
                     "Selecione a semana:",
                     options=opcoes_finais,
-                    format_func=lambda s: semanas_labels[s]
+                    format_func=lambda s: semanas_labels[s],
+                    key="sb_semana_new"
                 )
 
                 df_semana_atual = df_semanal[df_semanal["semana"] == semana_selecionada].copy()
+                
+                # Exibe dados absolutos se for a única semana ou a primeira da temporada
+                st.caption(f"📊 Dados coletados em: {semanas_labels[semana_selecionada]}")
+                df_graf = df_semana_atual
+            else:
+                st.info("Aguardando sincronização dos primeiros dados da Temporada 41...")
+                df_graf = None
 
                 idx_semana = list(semanas_disponiveis).index(semana_selecionada)
                 if idx_semana + 1 < len(semanas_disponiveis):
