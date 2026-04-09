@@ -381,16 +381,13 @@ if not df_bruto.empty:
         horizontal=True
     )
 
-if opcao_periodo == "📅 Por Semana":
+    if opcao_periodo == "📅 Por Semana":
         if not df_semanal.empty:
-            # 1. Padronização total das datas (Remove fuso horário e horas)
+            # Padroniza as datas e define o corte para o início desta semana (Temporada 41)
             df_semanal["semana"] = pd.to_datetime(df_semanal["semana"]).dt.tz_localize(None).dt.normalize()
-            
-            # 2. Define a data de corte para o início da semana de hoje ou o dia de hoje
-            # Usamos 2026-04-06 (segunda) ou 2026-04-08 (hoje) de forma flexível
             data_corte = pd.Timestamp("2026-04-06").normalize() 
             
-            # 3. Filtro robusto
+            # Filtra para ignorar Março e temporadas anteriores
             df_semanal = df_semanal[df_semanal["semana"] >= data_corte].copy()
 
             if not df_semanal.empty:
@@ -398,65 +395,32 @@ if opcao_periodo == "📅 Por Semana":
 
                 def formatar_semana(s):
                     dt = pd.Timestamp(s)
-                    # Lógica para bater com o seu print: Semana #2 - Abril 2026
                     quinta_feira = dt + pd.Timedelta(days=(3 - dt.weekday()))
-                    mes_ref = quinta_feira.month
-                    ano_ref = quinta_feira.year
-                    return f"Semana #{((quinta_feira.day - 1) // 7) + 1} - {MESES_PT[mes_ref].capitalize()} {ano_ref}"
+                    return f"Semana #{((quinta_feira.day - 1) // 7) + 1} - {MESES_PT[quinta_feira.month].capitalize()} {quinta_feira.year}"
 
                 semanas_labels = {s: formatar_semana(s) for s in semanas_disponiveis}
-                opcoes_finais = list(semanas_labels.keys())
-
+                
                 semana_selecionada = st.selectbox(
                     "Selecione a semana:",
-                    options=opcoes_finais,
+                    options=list(semanas_labels.keys()),
                     format_func=lambda s: semanas_labels[s],
-                    key="sb_semana_new"
+                    key="filtro_semana_nova"
                 )
 
-                df_semana_atual = df_semanal[df_semanal["semana"] == semana_selecionada].copy()
-                
-                # Exibe dados absolutos se for a única semana ou a primeira da temporada
-                st.caption(f"📊 Dados coletados em: {semanas_labels[semana_selecionada]}")
-                df_graf = df_semana_atual
+                df_graf = df_semanal[df_semanal["semana"] == semana_selecionada].copy()
+                st.caption(f"📊 Dados atuais: {semanas_labels[semana_selecionada]}")
             else:
-                st.info("Aguardando sincronização dos primeiros dados da Temporada 41...")
-                df_graf = None
-
-                idx_semana = list(semanas_disponiveis).index(semana_selecionada)
-                if idx_semana + 1 < len(semanas_disponiveis):
-                    semana_anterior = semanas_disponiveis[idx_semana + 1]
-                    df_semana_anterior = df_semanal[df_semanal["semana"] == semana_anterior].copy()
-                    df_semana_anterior = df_semana_anterior.set_index("nick")
-
-                    def calcular_diff(row, col):
-                        nick = row["nick"]
-                        if nick in df_semana_anterior.index:
-                            return row[col] - df_semana_anterior.loc[nick, col]
-                        return 0
-
-                    for col in ["partidas", "vitorias", "kills", "assists", "headshots", "revives", "top10"]:
-                        df_semana_atual[col] = df_semana_atual.apply(lambda r: calcular_diff(r, col), axis=1)
-
-                    df_semana_atual["kills_delta"] = df_semana_atual["kills"]
-                    df_semana_atual["dano_medio"] = df_semana_atual.apply(
-                        lambda r: r["dano_medio"] if r["kills_delta"] > 0 else 0, axis=1
-                    )
-                    df_semana_atual = df_semana_atual.drop(columns=["kills_delta"])
-                else:
-                    st.caption(f"📊 {formatar_semana(semana_selecionada)} (Início da Temporada)")
-
-                df_graf = df_semana_atual
-            else:
-                st.info("Nenhum dado encontrado para a temporada iniciada em 08/04/2026.")
+                st.info("Nenhum dado encontrado para a Temporada 41.")
                 df_graf = None
         else:
-            st.info("Nenhum dado semanal disponível ainda.")
+            st.info("Sem dados semanais no banco.")
             df_graf = None
 
     else:
+        # Temporada Completa utiliza os dados do ranking principal
         df_graf = df_valid.copy()
 
+    # Renderização dos Gráficos
     if df_graf is not None and not df_graf.empty:
         col_g1, col_g2 = st.columns(2)
         with col_g1:
