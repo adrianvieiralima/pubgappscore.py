@@ -409,6 +409,12 @@ if not df_bruto.empty:
                 )
 
                 df_graf = df_semanal[df_semanal["semana"] == semana_selecionada].copy()
+                # Garante que todos os players apareçam nos gráficos, mesmo sem dados na semana
+                todos_nicks = df_valid[["nick"]].drop_duplicates()
+                df_graf = todos_nicks.merge(df_graf, on="nick", how="left")
+                for _col in ["kills", "headshots", "vitorias", "dano_medio"]:
+                    if _col in df_graf.columns:
+                        df_graf[_col] = pd.to_numeric(df_graf[_col], errors="coerce").fillna(0).astype(int)
                 st.caption(f"📊 Dados atuais: {semanas_labels[semana_selecionada]}")
             else:
                 st.info("Nenhum dado encontrado para a Temporada 41.")
