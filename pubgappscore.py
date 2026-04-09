@@ -314,6 +314,7 @@ if not df_bruto.empty:
             (df_valid["assists"] / df_valid["partidas_calc"] * 0.1) +
             (df_valid["headshots"] / df_valid["partidas_calc"] * 0.2) +
             (df_valid["revives"] / df_valid["partidas_calc"] * 0.33) +
+            (df_valid["top10"] / df_valid["partidas_calc"] * 0.1) +
             (df_valid["dano_medio"] * 0.001)
         )
         renderizar_ranking(
@@ -321,7 +322,7 @@ if not df_bruto.empty:
             "Score_Pro",
             f_pro,
             "Fórmula PRO: Equilíbrio entre sobrevivência e agressividade. Valoriza consistência em vitórias, kills, precisão, suporte e dano.",
-            "(Win Rate × 5) + (Kills/P × 0.5) + (Assists/P × 0.1) + (Headshots/P × 0.2) + (Revives/P × 0.33) + (Dano Médio × 0.001)"
+            "(Win Rate × 5) + (Kills/P × 0.5) + (Assists/P × 0.1) + (Headshots/P × 0.2) + (Revives/P × 0.33) + (Top10/P × 0.1) + (Dano Médio × 0.001)"
         )
 
     with tab2:
