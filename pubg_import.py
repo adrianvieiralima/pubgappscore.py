@@ -34,6 +34,10 @@ def fazer_requisicao(url):
         return res
     return None
 
+def dividir_lista(lista, tamanho):
+    for i in range(0, len(lista), tamanho):
+        yield lista[i:i + tamanho]
+
 def get_segunda_feira():
     hoje = date.today()
     return hoje - timedelta(days=hoje.weekday())
