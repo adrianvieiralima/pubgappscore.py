@@ -53,19 +53,22 @@ current_season_id = current_season["id"] if current_season else ""
 
 print(f"📅 Temporada atual: {current_season_id}")
 
-print("🔎 Buscando IDs e última partida em uma única requisição...")
+print("🔎 Buscando IDs e última partida em lote...")
 player_ids = {}
 player_last_match = {}
 
-nomes = ",".join(players)
-res = fazer_requisicao(f"{BASE_URL}/players?filter[playerNames]={nomes}")
-if res and res.status_code == 200:
-    for p in res.json()["data"]:
-        nick = p["attributes"]["name"]
-        player_ids[nick] = p["id"]
-        matches = p["relationships"]["matches"]["data"]
-        if matches:
-            player_last_match[nick] = matches[0]["id"]
+for grupo in dividir_lista(players, 10):
+    nomes = ",".join(grupo)
+    res = fazer_requisicao(
+        f"{BASE_URL}/players?filter[playerNames]={nomes}"
+    )
+    if res and res.status_code == 200:
+        for p in res.json()["data"]:
+            nick = p["attributes"]["name"]
+            player_ids[nick] = p["id"]
+            matches = p["relationships"]["matches"]["data"]
+            if matches:
+                player_last_match[nick] = matches[0]["id"]
 
 print(f"✅ {len(player_ids)} IDs encontrados.")
 
