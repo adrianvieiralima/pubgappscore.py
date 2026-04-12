@@ -19,8 +19,7 @@ players = [
     "Adrian-Wan", "MironoteuCool", "FabioEspeto", "Mamutag_Komander",
     "Robson_Foz", "MEIRAA", "EL-LOCORJ", "SalaminhoKBD",
     "nelio_ponto_dev", "CARNEIROOO", "Kowalski_PR", "Zacouteguy",
-    "Sidors", "Takato_Matsuki", "cmm01", "Petrala",
-    "Fumiga_BR", "O-CARRASCO"
+    "Sidors", "Takato_Matsuki", "cmm01", "Petrala", "O-CARRASCO"
 ]
 
 def fazer_requisicao(url):
