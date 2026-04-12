@@ -26,8 +26,7 @@ PLAYERS = {
     "Sidors":"account.60ab21fad4094824a32dc404420b914d",
     "Takato_Matsuki":"account.10d2403139bd4066a95dda1a3eefe1e8",
     "cmm01":"account.80cedebb935242469fdd177454a52e0e",
-    "Petrala":"account.aadd1c378ff841219d853b4ad2646286",
-    "Fumiga_BR":"account.1fa2a7c08c3e4d4786587b4575a071cb",
+    "Petrala":"account.aadd1c378ff841219d853b4ad2646286",    
     "O-CARRASCO":"account.78c6f7bd39da4274b5a3196ac624e92e",
 }
 
