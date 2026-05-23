@@ -31,6 +31,7 @@ PLAYERS = {
     "O-CARRASCO":"account.78c6f7bd39da4274b5a3196ac624e92e",
     "DET4N4KA":"account.25ca8d1984854e01940a4509c595d9ff",
     "LeandroTW2":"account.a868cc4764a6447bb8f72649c73f5dab",
+    "HELI_NERES":"account.43a822c72c044a608d44e495417e73a4",
 }
 
 HEADERS = {"Authorization": f"Bearer {API_KEY}", "Accept": "application/vnd.api+json"}
