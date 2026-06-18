@@ -124,7 +124,7 @@ def processar_player(conn, player_name, player_id):
         attr = match_data["data"]["attributes"]
         created_at = attr.get("createdAt")
 
-        if created_at < INICIO_TEMPORADA_41:
+        if created_at < INICIO_TEMPORADA_42:
             print(f"    ⏩ {match_id} → partida antiga ({created_at}), ignorando")
             cur.execute("INSERT INTO matches_processadas (match_id, player_name) VALUES (%s, %s) ON CONFLICT DO NOTHING", (match_id, player_name))
             conn.commit()
