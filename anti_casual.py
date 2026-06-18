@@ -8,8 +8,8 @@ API_KEY = os.getenv("PUBG_API_KEY") or "SUA_CHAVE_AQUI"
 DATABASE_URL = os.getenv("DATABASE_URL")
 SHARD = "steam"
 
-# Início oficial da Temporada 41 (8 de abril de 2026)
-INICIO_TEMPORADA_41 = "2026-04-08T00:00:00Z"
+# Início oficial da Temporada 42 (8 de abril de 2026)
+INICIO_TEMPORADA_42 = "2026-06-11T00:00:00Z"
 
 PLAYERS = {
     "Adrian-Wan":"account.58beb24ada7346408942d42dc64c7901",
