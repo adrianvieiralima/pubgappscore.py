@@ -524,7 +524,7 @@ if not df_bruto.empty:
 
                 st.caption(f"📊 Dados atuais: {semanas_labels[semana_selecionada]}")
             else:
-                st.info("Nenhum dado encontrado para a Temporada 41.")
+                st.info("Nenhum dado encontrado para a Temporada 42.")
                 df_graf = None
         else:
             st.info("Sem dados semanais no banco.")
