@@ -9,7 +9,7 @@ DATABASE_URL = os.getenv("DATABASE_URL")
 SHARD = "steam"
 
 # Início oficial da Temporada 42 (8 de abril de 2026)
-INICIO_TEMPORADA_42 = "2026-06-11T00:00:00Z"
+INICIO_TEMPORADA_42 = "2026-06-17T00:00:00Z"
 
 PLAYERS = {
     "Adrian-Wan":"account.58beb24ada7346408942d42dc64c7901",
