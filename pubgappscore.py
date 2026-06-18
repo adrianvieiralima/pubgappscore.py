@@ -215,7 +215,7 @@ def aplicar_deducoes_bot_semanal(df_local, df_bot_semanal, semana_atual, semana_
     return df_local
 
 st.markdown(
-    "<h1 style='text-align:left;'>🏆 PUBG Ranking Squad - Season 41</h1>",
+    "<h1 style='text-align:left;'>🏆 PUBG Ranking Squad - Season 42</h1>",
     unsafe_allow_html=True
 )
 
@@ -459,7 +459,7 @@ if not df_bruto.empty:
     if opcao_periodo == "📅 Por Semana":
         if not df_semanal.empty:
             df_semanal["semana"] = pd.to_datetime(df_semanal["semana"]).dt.tz_localize(None).dt.normalize()
-            data_corte = pd.Timestamp("2026-04-06").normalize()
+            data_corte = pd.Timestamp("2026-06-17").normalize()
             df_semanal = df_semanal[df_semanal["semana"] >= data_corte].copy()
 
             if not df_semanal.empty:
