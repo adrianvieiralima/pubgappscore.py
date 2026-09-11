@@ -215,7 +215,7 @@ def aplicar_deducoes_bot_semanal(df_local, df_bot_semanal, semana_atual, semana_
     return df_local
 
 st.markdown(
-    "<h1 style='text-align:left;'>🏆 PUBG Ranking Squad - Season 42</h1>",
+    "<h1 style='text-align:left;'>🏆 PUBG Ranking Squad - Season 43</h1>",
     unsafe_allow_html=True
 )
 
