@@ -9,7 +9,7 @@ DATABASE_URL = os.getenv("DATABASE_URL")
 SHARD = "steam"
 
 # Início oficial da Temporada 42 (8 de abril de 2026)
-INICIO_TEMPORADA_42 = "2026-06-17T00:00:00Z"
+INICIO_TEMPORADA_43 = "2026-09-11T00:00:00Z"
 
 PLAYERS = {
     "Adrian-Wan":"account.58beb24ada7346408942d42dc64c7901",
@@ -124,7 +124,7 @@ def processar_player(conn, player_name, player_id):
         attr = match_data["data"]["attributes"]
         created_at = attr.get("createdAt")
 
-        if created_at < INICIO_TEMPORADA_42:
+        if created_at < INICIO_TEMPORADA_43:
             print(f"    ⏩ {match_id} → partida antiga ({created_at}), ignorando")
             cur.execute("INSERT INTO matches_processadas (match_id, player_name) VALUES (%s, %s) ON CONFLICT DO NOTHING", (match_id, player_name))
             conn.commit()
