@@ -459,7 +459,7 @@ if not df_bruto.empty:
     if opcao_periodo == "📅 Por Semana":
         if not df_semanal.empty:
             df_semanal["semana"] = pd.to_datetime(df_semanal["semana"]).dt.tz_localize(None).dt.normalize()
-            data_corte = pd.Timestamp("2026-06-17").normalize()
+            data_corte = pd.Timestamp("2026-09-11").normalize()
             df_semanal = df_semanal[df_semanal["semana"] >= data_corte].copy()
 
             if not df_semanal.empty:
