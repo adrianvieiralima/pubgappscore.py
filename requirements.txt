@@ -10,7 +10,6 @@ requests
 mysql-connector-python
 python-dotenv
 pytz
-streamlit-autorefresh
 aiohttp
 plotly
 psycopg[binary]
