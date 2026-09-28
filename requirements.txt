@@ -13,3 +13,4 @@ pytz
 streamlit-autorefresh
 aiohttp
 plotly
+psycopg[binary]
